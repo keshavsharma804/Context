@@ -9,6 +9,12 @@ Put the PostgreSQL connection URL in `backend/.env` as `DATABASE_URL` (also acce
 Use the connection URL from the [Supabase Connect panel](https://supabase.com/docs/guides/database/connecting-to-postgres).
 Project API URLs and API keys are not database connection strings.
 
+Render deployments use Python 3.12, selected by `.python-version` in the repository
+and backend directories. Keep the Render Root Directory set to `backend`. Remove
+any Render `PYTHON_VERSION` override set to a different Python minor version;
+environment overrides take precedence over the version files. The pinned PyMuPDF
+release has prebuilt Linux wheels for Python 3.12, avoiding a source build.
+
 Install backend dependencies and start the server from PowerShell:
 
 ```powershell
