@@ -53,9 +53,9 @@ export default function ConnectionsCard({
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/[0.08] text-primary/80 ring-1 ring-inset ring-primary/10 transition-shadow group-hover:shadow-[0_0_10px_hsl(var(--primary)/0.28)]">
                   <FileText className="h-3 w-3" strokeWidth={1.7} />
                 </span>
-                <p
+                <p tabIndex={0}
                   className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/85"
-                  title={connection.file}
+                  data-ui-tooltip={connection.file}
                 >
                   {connection.file}
                 </p>
@@ -87,7 +87,7 @@ export default function ConnectionsCard({
                   href={connection.url}
                   target="_blank"
                   rel="noreferrer"
-                  title={connection.page}
+                  data-ui-tooltip={connection.page}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.35 + index * 0.06, duration: 0.3 }}
@@ -97,11 +97,11 @@ export default function ConnectionsCard({
                   <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-50" />
                 </motion.a>
 
-                <motion.span
+                <motion.span tabIndex={0}
                   initial={{ scale: 0 }}
                   animate={{ scale: [0, 1.2, 1] }}
                   transition={{ duration: 0.45, delay: 0.35 + index * 0.06 }}
-                  title="Match score"
+                  data-ui-tooltip="Match score"
                   className="shrink-0 rounded-full border border-primary/15 bg-primary/[0.08] px-1.5 py-0.5 text-[9px] font-medium tabular-nums text-primary/80"
                 >
                   {connection.score.toFixed(1)}

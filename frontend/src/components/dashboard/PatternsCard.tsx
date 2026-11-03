@@ -165,7 +165,7 @@ export function PatternsCard({ patterns }: Props) {
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleDismiss(p)}
                       className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary/60 hover:text-foreground group-hover:opacity-100"
-                      title="Dismiss"
+                      data-ui-tooltip="Dismiss"
                     >
                       <X className="h-3.5 w-3.5" />
                     </motion.button>

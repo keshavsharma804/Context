@@ -110,9 +110,9 @@ export default function ForgottenCard({
                 </span>
 
                 <div className="min-w-0 flex-1">
-                  <p
+                  <p tabIndex={0}
                     className="truncate text-[12px] font-medium text-foreground/90"
-                    title={file.name}
+                    data-ui-tooltip={file.name}
                   >
                     {file.name}
                   </p>

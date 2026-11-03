@@ -507,7 +507,7 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
             type="button"
             onClick={() => setTelemetryOpen(!telemetryOpen)}
             className="chrono-satellite-beacon"
-            title="Orbital telemetry tracking"
+            data-ui-tooltip="Orbital telemetry tracking"
             aria-label="Orbital telemetry beacon"
           >
             <div className="chrono-beacon-dot">
@@ -526,7 +526,7 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
             className="shani-character"
             data-act={shaniAct}
             onClick={handleShaniClick}
-            title="Shani · Atmospheric Companion"
+            data-ui-tooltip="Shani · Atmospheric Companion"
             aria-label="Interact with Shani"
           >
             <div className="shani-aura" />
@@ -655,7 +655,7 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
             type="button"
             aria-pressed={phaseMode === 'live'}
             onClick={() => setPhaseMode('live')}
-            title="Real-time wall clock tracking"
+            data-ui-tooltip="Real-time wall clock tracking"
           >
             Live
           </button>
@@ -663,7 +663,7 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
             type="button"
             aria-pressed={phaseMode === 'dawn'}
             onClick={() => setPhaseMode('dawn')}
-            title="Dawn planetary sunrise"
+            data-ui-tooltip="Dawn planetary sunrise"
           >
             Dawn
           </button>
@@ -671,7 +671,7 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
             type="button"
             aria-pressed={phaseMode === 'day'}
             onClick={() => setPhaseMode('day')}
-            title="Daylight solar zenith"
+            data-ui-tooltip="Daylight solar zenith"
           >
             Day
           </button>
@@ -679,7 +679,7 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
             type="button"
             aria-pressed={phaseMode === 'dusk'}
             onClick={() => setPhaseMode('dusk')}
-            title="Dusk terminator twilight"
+            data-ui-tooltip="Dusk terminator twilight"
           >
             Dusk
           </button>
@@ -687,7 +687,7 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
             type="button"
             aria-pressed={phaseMode === 'night'}
             onClick={() => setPhaseMode('night')}
-            title="Midnight deep cosmos & city lights"
+            data-ui-tooltip="Midnight deep cosmos & city lights"
           >
             Night
           </button>

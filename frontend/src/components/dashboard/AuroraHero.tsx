@@ -325,7 +325,7 @@ export default function AuroraHero({ userName, className = '' }: AuroraHeroProps
             type="button"
             aria-pressed={phaseMode === 'live'}
             onClick={() => setPhaseMode('live')}
-            title="Real-time clock tracking"
+            data-ui-tooltip="Real-time clock tracking"
           >
             Live
           </button>
@@ -333,7 +333,7 @@ export default function AuroraHero({ userName, className = '' }: AuroraHeroProps
             type="button"
             aria-pressed={phaseMode === 'dawn'}
             onClick={() => setPhaseMode('dawn')}
-            title="Dawn sunrise atmosphere"
+            data-ui-tooltip="Dawn sunrise atmosphere"
           >
             Dawn
           </button>
@@ -341,7 +341,7 @@ export default function AuroraHero({ userName, className = '' }: AuroraHeroProps
             type="button"
             aria-pressed={phaseMode === 'day'}
             onClick={() => setPhaseMode('day')}
-            title="Daylight atmosphere"
+            data-ui-tooltip="Daylight atmosphere"
           >
             Day
           </button>
@@ -349,7 +349,7 @@ export default function AuroraHero({ userName, className = '' }: AuroraHeroProps
             type="button"
             aria-pressed={phaseMode === 'dusk'}
             onClick={() => setPhaseMode('dusk')}
-            title="Dusk golden sunset atmosphere"
+            data-ui-tooltip="Dusk golden sunset atmosphere"
           >
             Dusk
           </button>
@@ -357,7 +357,7 @@ export default function AuroraHero({ userName, className = '' }: AuroraHeroProps
             type="button"
             aria-pressed={phaseMode === 'night'}
             onClick={() => setPhaseMode('night')}
-            title="Midnight Borealis atmosphere"
+            data-ui-tooltip="Midnight Borealis atmosphere"
           >
             Night
           </button>
@@ -372,7 +372,7 @@ export default function AuroraHero({ userName, className = '' }: AuroraHeroProps
             className="shani-character"
             data-act={shaniAct}
             onClick={handleShaniClick}
-            title="Click me for good vibes!"
+            data-ui-tooltip="Click me for good vibes!"
             aria-label="Interactive Spirit Companion"
           >
             <span className="shani-aura" />

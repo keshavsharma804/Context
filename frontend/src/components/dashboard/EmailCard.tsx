@@ -86,7 +86,7 @@ export default function EmailCard({ gmail = EMPTY, className }: EmailCardProps) 
                 variant="ghost"
                 size="iconSm"
                 aria-label="Fetch new emails"
-                title="Fetch new emails"
+                data-ui-tooltip="Fetch new emails"
                 onClick={() => {
                   playClick()
                   refresh.mutate()

@@ -63,6 +63,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SpinnerArc } from '@/components/motion/SpinnerArc'
+import ThemeToggle from '@/components/ThemeToggle'
 import { celebrateConnection } from '@/lib/celebrate'
 import { isSoundEnabled, playSound, toggleSound, useSound } from '@/hooks/useSound'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
@@ -417,7 +418,6 @@ export default function SettingsPage() {
 
   const {
     theme: uiTheme,
-    setTheme: setUiTheme,
     soundEnabled: soundOn,
     toggleSound: handleSoundToggle,
     navStyle,
@@ -1129,7 +1129,7 @@ export default function SettingsPage() {
                     className={cn(
                       'group relative flex flex-col items-start rounded-2xl border p-3.5 text-left transition-all duration-200',
                       isSelected
-                        ? 'border-primary bg-primary/[0.08] shadow-[0_0_16px_rgba(139,92,246,0.18)] ring-1 ring-primary/40'
+                        ? 'border-primary bg-primary/[0.08] shadow-[0_0_16px_var(--theme-glow)] ring-1 ring-primary/40'
                         : 'border-border/60 bg-surface-1 hover:border-border hover:bg-surface-2'
                     )}
                   >
@@ -1179,7 +1179,9 @@ export default function SettingsPage() {
                     >
                       <span className="text-xs font-bold text-foreground block">{t.name}</span>
                       <span className="text-[10px] text-muted-foreground/70 capitalize mt-0.5 block">
-                        {t.id === 'shiori'
+                        {t.id === 'obsidian'
+                          ? 'Black & White'
+                          : t.id === 'shiori'
                           ? 'Moss & Linen'
                           : t.id === 'almanac'
                           ? 'Midnight Indigo'
@@ -1212,42 +1214,12 @@ export default function SettingsPage() {
                 Toggle light and dark surfaces independently of the atmosphere.
               </p>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    playClick()
-                    setUiTheme('dark')
-                    applyTheme(activeTheme, 'dark')
-                  }}
-                  className={cn(
-                    'flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-semibold cursor-pointer transition-all',
-                    uiTheme === 'dark'
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border/60 bg-surface-1 text-muted-foreground hover:bg-surface-2'
-                  )}
-                >
-                  <Moon className="h-3.5 w-3.5" />
-                  Dark Obsidian
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    playClick()
-                    setUiTheme('light')
-                    applyTheme(activeTheme, 'light')
-                  }}
-                  className={cn(
-                    'flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-semibold cursor-pointer transition-all',
-                    uiTheme === 'light'
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border/60 bg-surface-1 text-muted-foreground hover:bg-surface-2'
-                  )}
-                >
-                  <Sun className="h-3.5 w-3.5" />
-                  Light Paper
-                </button>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-surface-1 px-4 py-3">
+                <span className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                  {uiTheme === 'light' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {uiTheme === 'light' ? 'Light mode' : 'Dark mode'}
+                </span>
+                <ThemeToggle />
               </div>
             </div>
           </div>

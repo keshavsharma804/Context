@@ -275,9 +275,9 @@ function HabitTile({
           const isToday = day.date === today
           const status = day.status
           return (
-            <motion.span
+            <motion.span tabIndex={0}
               key={day.date}
-              title={`${prettyDate(day.date)} — ${statusLabel(status)}`}
+              data-ui-tooltip={`${prettyDate(day.date)} — ${statusLabel(status)}`}
               className={cn(
                 'h-1.5 w-1.5 rounded-full',
                 status === 'done'
@@ -465,7 +465,8 @@ function HabitDialog({
                         key={option.id}
                         type="button"
                         onClick={() => setEmoji(option.id)}
-                        title={option.label}
+                        data-ui-tooltip={option.label}
+                        aria-label={option.label}
                         className={cn(
                           'flex h-9 items-center justify-center rounded-lg border transition-all cursor-pointer',
                           isSelected
@@ -751,9 +752,9 @@ function Heatmap({
                       {square.monthShort}
                     </span>
                   ) : square.isToday ? (
-                    <span
+                    <span tabIndex={0}
                       className="h-1.5 w-1.5 rounded-full bg-primary"
-                      title="Today"
+                      data-ui-tooltip="Today"
                     />
                   ) : null}
                 </div>
@@ -1003,7 +1004,7 @@ function HabitDrawer({
               type="button"
               onClick={onEdit}
               aria-label="Edit habit"
-              title="Edit habit"
+              data-ui-tooltip="Edit habit"
               className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
             >
               <Pencil className="h-3.5 w-3.5" />
@@ -1012,7 +1013,7 @@ function HabitDrawer({
               type="button"
               onClick={() => setConfirmArchive((current) => !current)}
               aria-label={confirmArchive ? 'Confirm archive' : 'Archive habit'}
-              title={confirmArchive ? 'Click again to archive' : 'Archive habit'}
+              data-ui-tooltip={confirmArchive ? 'Click again to archive' : 'Archive habit'}
               className={cn(
                 'flex h-7 items-center justify-center rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground',
                 confirmArchive && 'w-auto gap-1 text-rose-400 light:text-rose-600'
@@ -1031,7 +1032,7 @@ function HabitDrawer({
               }}
               onMouseLeave={() => setConfirmArchive(false)}
               aria-label={confirmArchive ? 'Confirm archive' : 'Close'}
-              title={confirmArchive ? 'Confirm archive' : 'Close'}
+              data-ui-tooltip={confirmArchive ? 'Confirm archive' : 'Close'}
               className={cn(
                 'flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground',
                 confirmArchive && 'bg-rose-500/10 text-rose-400 light:text-rose-600'
@@ -1331,7 +1332,8 @@ export default function HabitsCard() {
                         key={option.id}
                         type="button"
                         onClick={() => setInlineEmoji(option.id)}
-                        title={option.label}
+                        data-ui-tooltip={option.label}
+                        aria-label={option.label}
                         className={cn(
                           'flex h-8 w-8 items-center justify-center rounded-lg border transition-colors cursor-pointer',
                           isSelected

@@ -207,7 +207,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                 <button
                   type="button"
                   onClick={openPalette}
-                  title="Open Command Palette (⌘K)"
+                  data-ui-tooltip="Open Command Palette (⌘K)"
                   className="hidden items-center gap-1 rounded-md border border-border/70 bg-surface-3/90 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/75 transition hover:border-primary/40 hover:bg-surface-3 hover:text-foreground sm:flex"
                 >
                   <Command className="h-2.5 w-2.5" />
@@ -222,9 +222,9 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
       {/* Right Hardware Status & Identity Cluster */}
       <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
         {/* Streak Counter */}
-        <div
+        <div tabIndex={0}
           className="flex h-9 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 transition hover:bg-amber-500/15 shadow-sm shadow-amber-500/5"
-          title={
+          data-ui-tooltip={
             streak.streak <= 1 && streak.firstEver
               ? 'Your streak starts today. Come back tomorrow!'
               : `${streak.streak}-day streak. Keep going!`
@@ -243,14 +243,14 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
         </div>
 
         {/* AI Hardware Chip Indicator (Groq) */}
-        <div
+        <div tabIndex={0}
           className={cn(
             'hidden items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10.5px] transition md:inline-flex shadow-sm',
             config?.has_groq
               ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
               : 'border-border/60 bg-surface-2/60 text-muted-foreground'
           )}
-          title={config?.has_groq ? 'Groq Llama-3.3 70B Engine connected' : 'No local LLM connected'}
+          data-ui-tooltip={config?.has_groq ? 'Groq Llama-3.3 70B Engine connected' : 'No local LLM connected'}
         >
           <span
             className={cn(
@@ -268,9 +268,9 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
 
         {/* Gmail Sync Indicator */}
         {config?.gmail_connected && (
-          <div
+          <div tabIndex={0}
             className="hidden max-w-[180px] items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-blue-400 lg:inline-flex shadow-sm"
-            title={config.gmail_email ?? 'Gmail synced'}
+            data-ui-tooltip={config.gmail_email ?? 'Gmail synced'}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)] animate-pulse" />
             <Mail className="h-3 w-3 shrink-0 opacity-70" />
@@ -287,7 +287,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
           type="button"
           onClick={handleSoundToggle}
           aria-label={soundOn ? 'Mute sounds' : 'Enable sounds'}
-          title={soundOn ? 'Audio feedback: On' : 'Audio feedback: Muted'}
+          data-ui-tooltip={soundOn ? 'Audio feedback: On' : 'Audio feedback: Muted'}
           className={cn(
             'flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200',
             soundOn

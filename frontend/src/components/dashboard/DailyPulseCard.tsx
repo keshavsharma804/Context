@@ -230,7 +230,7 @@ export function DailyPulseCard({ className }: { className?: string }) {
               const stateObj = STATES.find((st) => st.val === day.mood)
 
               return (
-                <div
+                <div tabIndex={0}
                   key={day.date}
                   className={cn(
                     'flex flex-col items-center justify-center rounded-lg border py-2 px-1 transition-all',
@@ -238,7 +238,7 @@ export function DailyPulseCard({ className }: { className?: string }) {
                       ? 'border-primary/50 bg-primary/[0.08] shadow-sm'
                       : 'border-border/40 bg-surface-2/40'
                   )}
-                  title={`${day.date}: ${stateObj?.label || 'No entry'}`}
+                  data-ui-tooltip={`${day.date}: ${stateObj?.label || 'No entry'}`}
                 >
                   <span className="text-[9px] uppercase font-bold text-muted-foreground/60 mb-1.5">
                     {dayName}

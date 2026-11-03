@@ -11,6 +11,9 @@
 export type ThemeMode = 'light' | 'dark'
 
 export interface ThemePalette {
+  primary?: string
+  primaryForeground?: string
+  ring?: string
   background: string
   foreground: string
   card: string
@@ -215,6 +218,54 @@ export const THEMES: Theme[] = [
     accent: '#d4d4d4',
     ring: '#e5e5e5',
     glow: 'rgba(229,229,229,0.3)',
+  },
+  {
+    id: 'obsidian',
+    name: 'Obsidian',
+    primary: '#eeeeee',
+    primaryFg: '#0a0a0a',
+    accent: '#a3a3a3',
+    ring: '#d4d4d4',
+    glow: 'rgba(163,163,163,0.06)',
+    palette: {
+      dark: {
+        background: '#0a0a0a',
+        foreground: '#f5f5f5',
+        card: '#171717',
+        cardForeground: '#f5f5f5',
+        popover: '#171717',
+        popoverForeground: '#f5f5f5',
+        secondary: '#262626',
+        secondaryForeground: '#f5f5f5',
+        muted: '#202020',
+        mutedForeground: '#a3a3a3',
+        accent: '#262626',
+        accentForeground: '#f5f5f5',
+        border: '#303030',
+        input: '#404040',
+        sidebar: '#0a0a0a',
+      },
+      light: {
+        primary: '#171717',
+        primaryForeground: '#ffffff',
+        ring: '#404040',
+        background: '#fafafa',
+        foreground: '#171717',
+        card: '#ffffff',
+        cardForeground: '#171717',
+        popover: '#ffffff',
+        popoverForeground: '#171717',
+        secondary: '#ededed',
+        secondaryForeground: '#171717',
+        muted: '#f0f0f0',
+        mutedForeground: '#666666',
+        accent: '#e5e5e5',
+        accentForeground: '#171717',
+        border: '#dedede',
+        input: '#b3b3b3',
+        sidebar: '#f5f5f5',
+      },
+    },
   },
   {
     id: 'cream',
@@ -482,6 +533,8 @@ export function applyTheme(themeId: string, explicitMode?: ThemeMode) {
   root.dataset.theme = mode
   root.style.colorScheme = mode
   const palette = paletteFor(theme, mode)
+  const primary = palette.primary ?? theme.primary
+  const primaryForeground = palette.primaryForeground ?? theme.primaryFg
 
   setToken(root, '--background', palette.background)
   setToken(root, '--foreground', palette.foreground)
@@ -489,8 +542,8 @@ export function applyTheme(themeId: string, explicitMode?: ThemeMode) {
   setToken(root, '--card-foreground', palette.cardForeground)
   setToken(root, '--popover', palette.popover)
   setToken(root, '--popover-foreground', palette.popoverForeground)
-  setToken(root, '--primary', theme.primary)
-  setToken(root, '--primary-foreground', theme.primaryFg)
+  setToken(root, '--primary', primary)
+  setToken(root, '--primary-foreground', primaryForeground)
   setToken(root, '--secondary', palette.secondary)
   setToken(root, '--secondary-foreground', palette.secondaryForeground)
   setToken(root, '--muted', palette.muted)
@@ -499,13 +552,13 @@ export function applyTheme(themeId: string, explicitMode?: ThemeMode) {
   setToken(root, '--accent-foreground', palette.accentForeground)
   setToken(root, '--border', palette.border)
   setToken(root, '--input', palette.input)
-  setToken(root, '--ring', theme.ring)
+  setToken(root, '--ring', palette.ring ?? theme.ring)
   setToken(root, '--sidebar', palette.sidebar)
 
   // Brand colours used by gradients, glow and confetti.
   root.style.setProperty('--theme-accent', hexToHslTriplet(theme.accent))
   root.style.setProperty('--theme-glow', theme.glow)
-  root.style.setProperty('--primary-hex', theme.primary)
+  root.style.setProperty('--primary-hex', primary)
   root.style.setProperty('--theme-accent-hex', theme.accent)
 
   // Surfaces follow the mode so overlays stay legible on any background.

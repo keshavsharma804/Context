@@ -140,7 +140,7 @@ function NavItem({
   return (
     <NavLink
       to={to}
-      title={`${label} · G ${hotkey}`}
+      data-ui-tooltip={`${label} · G ${hotkey}`}
       aria-label={compact ? label : undefined}
       className="block"
       onClick={() => {
@@ -370,7 +370,8 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           <NavLink
             to="/auth"
             onClick={() => playClick()}
-            title={isAuthenticated && user ? `Account: ${user.name}` : 'Sign In / Account'}
+            data-ui-tooltip={isAuthenticated && user ? `Account: ${user.name}` : 'Sign In / Account'}
+            aria-label={isAuthenticated && user ? `Account: ${user.name}` : 'Sign In / Account'}
             className={cn(
               'flex h-9 w-9 items-center justify-center rounded-xl transition',
               authActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
@@ -388,7 +389,8 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           <NavLink
             to="/settings"
             onClick={() => playClick()}
-            title="Settings · G S"
+            data-ui-tooltip="Settings · G S"
+            aria-label="Settings"
             className={cn(
               'flex h-9 w-9 items-center justify-center rounded-xl transition',
               settingsActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'

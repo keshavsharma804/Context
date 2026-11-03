@@ -68,13 +68,13 @@ export function ContextLogo({ className = '', size = 32, variant = 'tile' }: Con
  */
 export function ContextSeal({ className = '', size = 42 }: { className?: string; size?: number }) {
   return (
-    <div
+    <div tabIndex={0}
       className={cn(
         'group relative flex flex-col items-center justify-center rounded-lg border border-stone-700/80 bg-[#121316] shadow-sm cursor-default select-none transition-colors hover:border-stone-500',
         className
       )}
       style={{ width: size, height: size }}
-      title="Context Hardware Vault · 100% Local Silicon"
+      data-ui-tooltip="Context Hardware Vault · 100% Local Silicon"
     >
       {/* Authentic inner double border */}
       <div className="absolute inset-[2.5px] rounded border border-stone-800 pointer-events-none group-hover:border-stone-700 transition-colors" />
