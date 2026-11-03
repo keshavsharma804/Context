@@ -419,12 +419,11 @@
 .chrono-hello {
   font-family: "Newsreader", ui-serif, Georgia, serif;
   font-weight: 300;
-  font-size: clamp(42px, 6.8vw, 88px);
-  line-height: 1.05;
+  font-size: clamp(1.75rem, 3vw, 3rem);
+  line-height: 1.15;
   letter-spacing: -0.035em;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 0.28em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
   margin: 10px 0 0;
 }
 

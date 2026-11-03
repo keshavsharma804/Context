@@ -21,6 +21,7 @@ import { toast } from 'sonner'
 import { useSound } from '@/hooks/useSound'
 import { cn } from '@/lib/utils'
 import type { VaultCategory, VaultItemDecrypted } from '@/lib/api'
+import { visibleVaultFields } from '@/lib/vault-fields'
 
 interface VaultItemCardProps {
   item: VaultItemDecrypted
@@ -55,7 +56,7 @@ const CATEGORY_META: Record<
     tagClass: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
   },
   password: {
-    label: 'Login',
+    label: 'Logins',
     icon: KeyRound,
     color: '#f59e0b',
     borderGlow: 'from-amber-500/20 via-amber-500/5 to-transparent',
@@ -276,10 +277,7 @@ export function VaultItemCard({ item, index = 0, onEdit, onDelete }: VaultItemCa
   const Icon = meta.icon
 
   // Extract up to 4 fields to display (excluding file binary payload)
-  const FILE_KEYS = new Set(['file_data', 'file_name', 'file_size', 'file_type'])
-  const fields = Object.entries(item.data || {}).filter(
-    ([key, val]) => !FILE_KEYS.has(key) && val !== undefined && val !== null && String(val).trim() !== ''
-  )
+  const fields = visibleVaultFields(item.category, item.data || {})
 
   return (
     <motion.div

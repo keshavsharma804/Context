@@ -19,6 +19,7 @@ import {
   Copy,
   Check,
   Download,
+  Upload,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -48,6 +49,7 @@ import {
 } from '@/lib/api'
 import { VaultItemCard } from '@/components/vault/VaultItemCard'
 import { AddItemDialog } from '@/components/vault/AddItemDialog'
+import { VaultImportDialog } from '@/components/vault/VaultImportDialog'
 import { cn } from '@/lib/utils'
 
 const AUTH_VERIFIER_CHALLENGE = 'CONTEXT_VAULT_AUTH_VERIFIED_V1'
@@ -621,6 +623,7 @@ export default function Vault() {
 
   // UI state
   const [addModalOpen, setAddModalOpen] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<VaultItemDecrypted | null>(null)
   const [activeCategory, setActiveCategory] = useState<VaultCategory | 'all'>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -1249,6 +1252,10 @@ export default function Vault() {
                   <span>Add item</span>
                 </button>
 
+                <button type="button" onClick={() => setImportModalOpen(true)} className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-[12.5px] font-medium hover:bg-surface-2">
+                  <Upload className="h-4 w-4" /><span>Import sheet</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -1396,6 +1403,8 @@ export default function Vault() {
           queryClient.invalidateQueries({ queryKey: ['vault', 'items'] })
         }}
       />
+
+      {unlocked && importModalOpen && <VaultImportDialog onClose={() => setImportModalOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['vault', 'items'] })} />}
 
       {/* Setup Recovery Modal */}
       <SetupRecoveryModal

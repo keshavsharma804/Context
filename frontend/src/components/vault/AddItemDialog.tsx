@@ -30,6 +30,7 @@ import {
   type VaultItemDecrypted,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { cleanVaultData, vaultDefaults } from '@/lib/vault-fields'
 
 interface AddItemDialogProps {
   open: boolean
@@ -106,16 +107,9 @@ export function AddItemDialog({
       for (const [k, v] of Object.entries(editingItem.data || {})) {
         cleanedData[k] = String(v ?? '')
       }
-      setFormData(cleanedData)
+      setFormData(cleanVaultData(editingItem.category, cleanedData))
     } else {
-      setFormData({
-        whose: 'Me',
-        account_type: 'Savings',
-        id_type: 'Aadhaar Card',
-        card_network: 'Visa',
-        card_type: 'Credit',
-        upi_provider: 'GPay',
-      })
+      setFormData(vaultDefaults('bank'))
       setCategory('bank')
     }
   }, [editingItem, open])
@@ -215,7 +209,7 @@ export function AddItemDialog({
       touch()
 
       // Encrypt all form data (including any attached document file) client-side
-      const plaintext = JSON.stringify(formData)
+      const plaintext = JSON.stringify(cleanVaultData(category, formData))
       const { ciphertext, iv } = await encrypt(key, plaintext)
 
       if (editingItem) {
@@ -308,6 +302,8 @@ export function AddItemDialog({
                 onClick={() => {
                   playClick()
                   setCategory(cat.id)
+                  setFormData(previous => ({ ...vaultDefaults(cat.id), ...cleanVaultData(cat.id, previous) }))
+                  setShowSecret(false)
                 }}
                 className={cn(
                   'flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition shrink-0',
@@ -1070,6 +1066,7 @@ export function AddItemDialog({
                         <button
                           type="button"
                           onClick={() => setShowSecret(!showSecret)}
+                          aria-label={showSecret ? 'Hide password' : 'Show password'}
                           className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
                         >
                           {showSecret ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}

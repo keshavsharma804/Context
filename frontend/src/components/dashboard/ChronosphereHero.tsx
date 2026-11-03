@@ -632,17 +632,10 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
             </span>
           </div>
 
-          <h1 className="chrono-hello" aria-label={greetingText}>
-            {greetingText.split(' ').map((word, i) => (
-              <span key={i} style={{ animationDelay: `${i * 120 + 80}ms` }}>
-                {word}
-              </span>
-            ))}
-            {userName && (
-              <span style={{ animationDelay: '300ms', opacity: 0.9 }}>
-                , {userName}
-              </span>
-            )}
+          <h1 className="chrono-hello">
+            <span style={{ animationDelay: '80ms' }}>
+              {greetingText}{userName ? `, ${userName}` : ''}
+            </span>
           </h1>
 
           <p className="chrono-line">{CHRONO_LINES[currentPhase]}</p>

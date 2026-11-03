@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { toast } from 'sonner'
 import {
@@ -18,7 +18,6 @@ import {
   Check,
   Copy,
   ArrowRight,
-  ArrowLeft,
   Zap,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
@@ -402,15 +401,6 @@ export default function AuthPage() {
           </motion.div>
         )}
 
-        <div className="text-center">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Return to Dashboard</span>
-          </Link>
-        </div>
       </div>
     </div>
   )

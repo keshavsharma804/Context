@@ -1,6 +1,10 @@
 /** Tailwind v4 + shadcn-compatible design system */
 @import "tailwindcss";
 
+/* Keep our accessible reveal button as the single password visibility control. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear { display: none; }
+
 html[data-interface-size="compact"] { font-size: 14px; }
 html[data-interface-size="default"] { font-size: 16px; }
 html[data-interface-size="large"] { font-size: 18px; }

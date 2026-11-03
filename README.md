@@ -139,3 +139,29 @@ safe `request_failed` log lines; never paste raw connection URLs or tokens.
 
 References: [Supabase email OTP](https://supabase.com/docs/guides/auth/auth-email-passwordless)
 and [SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp).
+
+Vault spreadsheet imports
+-------------------------
+
+Unlock the vault and select **Import sheet**. Upload XLSX, XLS, CSV, or TSV files
+(including downloads from Google Sheets), or enter a browser-readable Google
+Sheets URL. Google Sheets shortcut `.gsheet` files are also accepted when they
+contain a valid sheet URL. Private Sheets require downloading and uploading the
+file; the app does not request Google account access or make documents public.
+
+The first nonempty row supplies column names. Choose a workbook tab, review the
+detected category and column mapping, then select **Encrypt & import**. Common
+password-manager headings such as name, url, username, password, and notes map
+automatically. Bank, card, ID, UPI, and note fields are supported. Unrecognized
+columns can be mapped manually; unmapped columns are explicitly marked ignored.
+Resolve invalid rows or duplicate destination mappings before saving.
+
+Imports are limited to 5 MB, 1,000 data rows, and 100 columns per tab. SheetJS is
+loaded only when parsing a file. Parsing and AES-GCM encryption happen in browser
+memory; backend requests contain the existing vault metadata and ciphertext.
+Up to three saves run concurrently. Stop finishes in-flight rows; successful
+rows stay marked and are excluded from retry within the open import dialog.
+Closing the dialog clears the preview. Existing entries are never overwritten.
+
+Run parser, encrypted-save, and category regressions with
+`cd frontend` then `node scripts/test-vault-import.mjs`.
