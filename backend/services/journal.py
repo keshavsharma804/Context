@@ -46,7 +46,7 @@ def _clean_tags(tags: Union[str, List[str], None]) -> str:
 def get_entry(date_str: Optional[str] = None) -> Optional[dict]:
     d = (date_str or "").strip() or date.today().isoformat()
     conn = get_conn()
-    row = conn.execute("SELECT * FROM journal WHERE date = ?", (d,)).fetchone()
+    row = conn.execute('SELECT * FROM context.journal WHERE date = %s', (d,)).fetchone()
     conn.close()
     if not row:
         return None
@@ -74,16 +74,7 @@ def save_entry(
 
     conn = get_conn()
     conn.execute(
-        """
-        INSERT INTO journal (date, mood, headline, content, tags, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(date) DO UPDATE SET
-            mood = excluded.mood,
-            headline = excluded.headline,
-            content = excluded.content,
-            tags = excluded.tags,
-            updated_at = excluded.updated_at
-        """,
+        '\n        INSERT INTO context.journal (date, mood, headline, content, tags, created_at, updated_at)\n        VALUES (%s, %s, %s, %s, %s, %s, %s)\n        ON CONFLICT(date) DO UPDATE SET\n            mood = excluded.mood,\n            headline = excluded.headline,\n            content = excluded.content,\n            tags = excluded.tags,\n            updated_at = excluded.updated_at\n        ',
         (d, m, clean_h, clean_c, clean_t, now, now),
     )
     conn.commit()
@@ -97,7 +88,7 @@ def delete_entry(date_str: str) -> bool:
     if not d:
         return False
     conn = get_conn()
-    cur = conn.execute("DELETE FROM journal WHERE date = ?", (d,))
+    cur = conn.execute('DELETE FROM context.journal WHERE date = %s', (d,))
     conn.commit()
     deleted = cur.rowcount > 0
     conn.close()
@@ -107,7 +98,7 @@ def delete_entry(date_str: str) -> bool:
 def list_entries(limit: int = 30) -> list[dict]:
     conn = get_conn()
     rows = conn.execute(
-        "SELECT * FROM journal ORDER BY date DESC LIMIT ?", (limit,)
+        'SELECT * FROM context.journal ORDER BY date DESC LIMIT %s', (limit,)
     ).fetchall()
     conn.close()
 
@@ -128,7 +119,7 @@ def mood_matrix(days: int = 30) -> dict:
 
     conn = get_conn()
     rows = conn.execute(
-        "SELECT * FROM journal WHERE date >= ? AND date <= ? ORDER BY date ASC",
+        'SELECT * FROM context.journal WHERE date >= %s AND date <= %s ORDER BY date ASC',
         (start_day.isoformat(), today.isoformat()),
     ).fetchall()
     conn.close()

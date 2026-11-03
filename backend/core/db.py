@@ -1,611 +1,186 @@
-import os
+﻿"""Supabase PostgreSQL connections shared by the existing backend services."""
 
-import sqlite3
+import atexit
+import logging
+from pathlib import Path
+from threading import Lock
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-try:
-    from core.config import DB_PATH
-except ImportError:
-    from .config import DB_PATH
+import psycopg
+from psycopg.conninfo import conninfo_to_dict
+from psycopg_pool import ConnectionPool
+
+from core.config import DATABASE_URL, DB_POOL_SIZE
+
+_pool = None
+_pool_lock = Lock()
 
 
+class DatabaseRow(dict):
+    """Keep both named and positional access used by the existing API."""
 
+    def __getitem__(self, key):
+        if isinstance(key, (int, slice)):
+            return tuple(self.values())[key]
+        return super().__getitem__(key)
+
+
+def _row_factory(cursor):
+    columns = [column.name for column in cursor.description or ()]
+    return lambda values: DatabaseRow(zip(columns, values))
+
+
+def _connection_url(value):
+    """Remove dashboard/ORM-only options without changing the stored secret."""
+    parts = urlsplit(value)
+    client_options = {"supa", "pgbouncer", "connection_limit", "pool_timeout", "schema"}
+    query = [(key, val) for key, val in parse_qsl(parts.query, keep_blank_values=True)
+             if key not in client_options]
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
+def _get_pool():
+    global _pool
+    with _pool_lock:
+        if _pool is not None:
+            return _pool
+        if not DATABASE_URL:
+            raise RuntimeError(
+                "Set DATABASE_URL (or SUPABASE_DB_URL) in backend/.env to the "
+                "PostgreSQL connection URL from Supabase's Connect panel. "
+                "A Supabase API URL/key is not a PostgreSQL connection URL."
+            )
+        try:
+            connection_url = _connection_url(DATABASE_URL)
+            options = conninfo_to_dict(connection_url)
+        except Exception:
+            raise RuntimeError("Invalid PostgreSQL connection URL in backend/.env.") from None
+        local = options.get("host") in ("localhost", "127.0.0.1", "::1")
+        sslmode = options.get("sslmode", "require")
+        if not local and sslmode not in ("require", "verify-ca", "verify-full"):
+            sslmode = "require"
+        # Pool diagnostics may contain credentials; callers get a fixed error.
+        logging.getLogger("psycopg.pool").setLevel(logging.CRITICAL)
+        pool = ConnectionPool(
+            connection_url,
+            min_size=1,
+            max_size=max(4, min(DB_POOL_SIZE, 30)),
+            timeout=15,
+            max_waiting=40,
+            open=False,
+            kwargs={
+                "row_factory": _row_factory,
+                "connect_timeout": 10,
+                "sslmode": sslmode,
+                "prepare_threshold": None,
+            },
+        )
+        try:
+            pool.open(wait=True, timeout=15)
+        except Exception:
+            pool.close()
+            raise RuntimeError(
+                "Cannot connect to Supabase PostgreSQL. Check the connection URL, "
+                "database password, network access, and pooler settings in backend/.env."
+            ) from None
+        _pool = pool
+        return pool
+
+
+class DatabaseConnection:
+    """Return pooled connections safely when existing callers invoke close()."""
+
+    def __init__(self, pool, connection):
+        self._pool = pool
+        self._connection = connection
+
+    def execute(self, query, params=None):
+        return self._connection.execute(query, params)
+
+    def cursor(self):
+        return self._connection.cursor()
+
+    def commit(self):
+        self._connection.commit()
+
+    def rollback(self):
+        self._connection.rollback()
+
+    def transaction(self):
+        return self._connection.transaction()
+
+    def close(self):
+        connection, self._connection = self._connection, None
+        if connection is not None:
+            try:
+                connection.rollback()
+            except psycopg.Error:
+                connection.close()
+            finally:
+                self._pool.putconn(connection)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            if exc_type is None:
+                self.commit()
+        finally:
+            self.close()
+
+    def __del__(self):
+        # Reclaim a lease if an older service's exception bypasses close().
+        try:
+            self.close()
+        except Exception:
+            pass
 
 
 def get_conn():
+    pool = _get_pool()
+    try:
+        connection = pool.getconn(timeout=15)
+    except Exception:
+        raise RuntimeError("Supabase database connection is temporarily unavailable.") from None
+    return DatabaseConnection(pool, connection)
 
-    conn = sqlite3.connect(DB_PATH)
 
-    conn.row_factory = sqlite3.Row
-
-    return conn
-
-
-
+def close_pool():
+    global _pool
+    with _pool_lock:
+        pool, _pool = _pool, None
+    if pool is not None:
+        pool.close()
 
 
 def init_db():
-
-    conn = get_conn()
-
-    c = conn.cursor()
-
-
-
-    c.execute("""
-
-        CREATE VIRTUAL TABLE IF NOT EXISTS files USING fts5(
-
-            path, name, category, content, downloaded, last_opened,
-
-            size_kb UNINDEXED
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE VIRTUAL TABLE IF NOT EXISTS history USING fts5(
-
-            url, title, content, last_visit UNINDEXED, visits UNINDEXED
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS manual (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            kind TEXT, payload TEXT, created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS patterns (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            kind TEXT, detail TEXT, seen_at TEXT
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS applications (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            company TEXT NOT NULL, role TEXT, cv_file TEXT,
-
-            applied_at TEXT, status TEXT DEFAULT 'applied',
-
-            notes TEXT, url TEXT, jd TEXT, created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS interviews (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            company TEXT NOT NULL, scheduled_at TEXT,
-
-            interview_type TEXT, prep_docs TEXT, notes TEXT, created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS companies (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            name TEXT UNIQUE NOT NULL, source TEXT, detected_at TEXT
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS events (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            uid TEXT UNIQUE, title TEXT, start_at TEXT, end_at TEXT,
-
-            location TEXT, description TEXT, category TEXT, company TEXT,
-
-            source TEXT, created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_events_start ON events(start_at)")
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS emails (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            uid TEXT UNIQUE, from_addr TEXT, from_name TEXT, to_addr TEXT,
-
-            subject TEXT, body_snippet TEXT, received_at TEXT,
-
-            category TEXT, needs_reply INTEGER DEFAULT 0, replied INTEGER DEFAULT 0,
-
-            thread_key TEXT, source TEXT, created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_emails_thread ON emails(thread_key)")
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_emails_needs ON emails(needs_reply)")
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS promises (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            who TEXT, what TEXT, by_when TEXT, source TEXT,
-
-            resolved INTEGER DEFAULT 0, created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE VIRTUAL TABLE IF NOT EXISTS chunks USING fts5(
-
-            title, content, source_type UNINDEXED,
-
-            source_id UNINDEXED, metadata UNINDEXED
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS activity_log (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            kind TEXT, target TEXT, detail TEXT, timestamp TEXT
-
-        )
-
-    """)
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_activity_ts ON activity_log(timestamp DESC)")
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS ignored_files (
-
-            path TEXT PRIMARY KEY, ignored_at TEXT
-
-        )
-
-    """)
-
-
-
-    # ============ NEW: People ============
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS people (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            name TEXT UNIQUE NOT NULL COLLATE NOCASE,
-
-            birthday TEXT,
-
-            tags TEXT,
-
-            last_contacted TEXT,
-
-            source TEXT,
-
-            created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS person_facts (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            person_id INTEGER NOT NULL,
-
-            fact TEXT,
-
-            category TEXT,
-
-            source TEXT,
-
-            resolved INTEGER DEFAULT 0,
-
-            created_at TEXT,
-
-            FOREIGN KEY (person_id) REFERENCES people(id)
-
-        )
-
-    """)
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_person_facts ON person_facts(person_id)")
-
-
-
-    # ============ NEW: Spends + budgets ============
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS spends (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            amount REAL,
-
-            merchant TEXT,
-
-            category TEXT,
-
-            spent_at TEXT,
-
-            created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_spends_date ON spends(spent_at)")
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS budgets (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            category TEXT UNIQUE NOT NULL,
-
-            amount REAL,
-
-            period TEXT DEFAULT 'month',
-
-            created_at TEXT
-
-        )
-
-    """)
-
-
-
-    # ============ NEW: Detected patterns ============
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS patterns_detected (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            kind TEXT,
-
-            title TEXT,
-
-            detail TEXT,
-
-            severity TEXT,
-
-            detected_at TEXT,
-
-            dismissed INTEGER DEFAULT 0
-
-        )
-
-    """)
-
-
-
-    # ============ NEW: Habits + daily logs ============
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS habits (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-
-            emoji TEXT DEFAULT '●',
-
-            color TEXT DEFAULT '#8b5cf6',
-
-            target_per_week INTEGER DEFAULT 7,
-
-            created_at TEXT,
-
-            archived INTEGER DEFAULT 0
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS habit_logs (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            habit_id INTEGER NOT NULL,
-
-            date TEXT NOT NULL,
-
-            status TEXT NOT NULL,
-
-            note TEXT,
-
-            created_at TEXT,
-
-            UNIQUE(habit_id, date),
-
-            FOREIGN KEY (habit_id) REFERENCES habits(id)
-
-        )
-
-    """)
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_habit_logs_habit ON habit_logs(habit_id)")
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_habit_logs_date ON habit_logs(date)")
-
-
-
-    # ============ NEW: Secure Vault ============
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS vault_config (
-
-            id INTEGER PRIMARY KEY CHECK (id = 1),
-
-            salt TEXT NOT NULL,
-
-            recovery_salt TEXT,
-
-            encrypted_vek TEXT,
-
-            encrypted_vek_iv TEXT,
-
-            recovery_encrypted_vek TEXT,
-
-            recovery_encrypted_vek_iv TEXT,
-
-            verifier_ciphertext TEXT,
-
-            verifier_iv TEXT,
-
-            created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS vault_items (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            title TEXT NOT NULL,
-
-            category TEXT NOT NULL,
-
-            ciphertext TEXT NOT NULL,
-
-            iv TEXT NOT NULL,
-
-            created_at TEXT,
-
-            updated_at TEXT
-
-        )
-
-    """)
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_vault_items_category ON vault_items(category)")
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_vault_items_title ON vault_items(title)")
-
-
-
-    # ============ NEW: Subscriptions & Renewals ============
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS subscriptions (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            name TEXT NOT NULL,
-
-            amount REAL NOT NULL,
-
-            billing_cycle TEXT NOT NULL DEFAULT 'monthly',
-
-            category TEXT DEFAULT 'entertainment',
-
-            next_renewal TEXT NOT NULL,
-
-            payment_method TEXT,
-
-            auto_renew INTEGER DEFAULT 1,
-
-            notes TEXT,
-
-            created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_subs_renewal ON subscriptions(next_renewal)")
-
-
-
-    # ============ NEW: Debts & IOUs ============
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS debts (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            person TEXT NOT NULL,
-
-            direction TEXT NOT NULL,
-
-            amount REAL NOT NULL,
-
-            due_date TEXT,
-
-            taken_at TEXT NOT NULL,
-
-            settled INTEGER DEFAULT 0,
-
-            settled_at TEXT,
-
-            notes TEXT,
-
-            created_at TEXT
-
-        )
-
-    """)
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_debts_person ON debts(person)")
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_debts_settled ON debts(settled)")
-
-
-
-    # ============ NEW: Saving Goals ============
-
-    # ============ NEW: Journal and Mood ============
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS journal (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            date TEXT NOT NULL UNIQUE,
-
-            mood INTEGER DEFAULT 3,
-
-            headline TEXT,
-
-            content TEXT,
-
-            tags TEXT,
-
-            created_at TEXT,
-
-            updated_at TEXT
-
-        )
-
-    """)
-
-    c.execute("CREATE INDEX IF NOT EXISTS idx_journal_date ON journal(date)")
-
-
-
-    # ============ NEW: Saving Goals ============
-
-    c.execute("""
-
-        CREATE TABLE IF NOT EXISTS saving_goals (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            title TEXT NOT NULL,
-
-            target_amount REAL NOT NULL,
-
-            current_amount REAL DEFAULT 0,
-
-            target_date TEXT,
-
-            category TEXT DEFAULT 'purchase',
-
-            emoji TEXT DEFAULT '🎯',
-
-            notes TEXT,
-
-            created_at TEXT
-
-        )
-
-    """)
-
-
-
-
-
-    # ============ NEW: User Accounts & Authentication ============
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            email TEXT UNIQUE NOT NULL,
-            name TEXT,
-            password_hash TEXT,
-            avatar TEXT,
-            provider TEXT DEFAULT 'email',
-            role TEXT DEFAULT 'Owner',
-            created_at TEXT,
-            last_sign_in_at TEXT
-        )
-    """)
-    c.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
-
-    conn.commit()
-    conn.close()
-
-
-
+    """Apply versioned, idempotent migrations in a single transaction."""
+    migration_dir = Path(__file__).resolve().parents[1] / "migrations"
+    with get_conn() as conn:
+        conn.execute("SELECT pg_advisory_xact_lock(743920651)")
+        conn.execute("CREATE SCHEMA IF NOT EXISTS context")
+        conn.execute("REVOKE ALL ON SCHEMA context FROM PUBLIC")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS context.schema_migrations (
+                version TEXT PRIMARY KEY,
+                applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """)
+        for path in sorted(migration_dir.glob("*.sql")):
+            exists = conn.execute(
+                "SELECT 1 FROM context.schema_migrations WHERE version = %s", (path.name,)
+            ).fetchone()
+            if exists:
+                continue
+            conn.execute(path.read_text(encoding="utf-8"))
+            conn.execute(
+                "INSERT INTO context.schema_migrations (version) VALUES (%s)", (path.name,)
+            )
 
 
 def reset_db():
+    raise RuntimeError("Remote database resets are disabled. Use the explicit data-clear action.")
 
-    if os.path.exists(DB_PATH):
 
-        os.remove(DB_PATH)
-
-    init_db()
+atexit.register(close_pool)

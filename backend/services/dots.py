@@ -78,7 +78,7 @@ def _same_document(a, b):
 
 def _ignored_paths():
     conn = get_conn()
-    rows = conn.execute("SELECT path FROM ignored_files").fetchall()
+    rows = conn.execute('SELECT path FROM context.ignored_files').fetchall()
     conn.close()
     return {r["path"] for r in rows}
 
@@ -95,10 +95,10 @@ def find_connections(limit=5, min_score=0.6):
     conn = get_conn()
     ignored = _ignored_paths()
     files = conn.execute(
-        "SELECT name, path, content, downloaded FROM files WHERE content != '' ORDER BY downloaded DESC LIMIT 100"
+        "SELECT name, path, content, downloaded FROM context.files WHERE content != '' ORDER BY downloaded DESC LIMIT 100"
     ).fetchall()
     raw_history = conn.execute(
-        "SELECT url, title, last_visit FROM history ORDER BY last_visit DESC LIMIT 1000"
+        'SELECT url, title, last_visit FROM context.history ORDER BY last_visit DESC LIMIT 1000'
     ).fetchall()
     conn.close()
 
@@ -176,12 +176,10 @@ def _age_days(iso):
 def find_forgotten_files(limit=None):
     limit = limit or FORGOTTEN_LIMIT
     ignored = _ignored_paths()
-    cat_placeholders = ",".join("?" * len(FORGOTTEN_CATEGORIES))
+    cat_placeholders = ",".join(["%s"] * len(FORGOTTEN_CATEGORIES))
     conn = get_conn()
     rows = conn.execute(
-        f"SELECT name, path, category, downloaded, last_opened, size_kb "
-        f"FROM files WHERE category IN ({cat_placeholders}) AND size_kb >= ? "
-        f"ORDER BY downloaded DESC LIMIT 300",
+        f'SELECT name, path, category, downloaded, last_opened, size_kb FROM context.files WHERE category IN ({cat_placeholders}) AND size_kb >= %s ORDER BY downloaded DESC LIMIT 300',
         (*FORGOTTEN_CATEGORIES, FORGOTTEN_MIN_SIZE_KB),
     ).fetchall()
     conn.close()

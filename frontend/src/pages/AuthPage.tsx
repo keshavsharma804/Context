@@ -71,7 +71,7 @@ export default function AuthPage() {
       if (res.ok) {
         playSound('bell')
         celebrateConnection()
-        toast.success(res.message || 'Account created and saved in SQLite!')
+        toast.success(res.message || 'Account created and saved!')
         setEmail('')
         setPassword('')
         setName('')
@@ -145,8 +145,8 @@ export default function AuthPage() {
 
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
             {isAuthenticated
-              ? 'Active local account session stored in encrypted SQLite database.'
-              : 'Add any email and password. Your credentials save directly into your local SQLite database.'}
+              ? 'Your account is saved in Supabase.'
+              : 'Create an account with your email and password. Account records are stored in Supabase.'}
           </p>
         </div>
 
@@ -198,10 +198,10 @@ export default function AuthPage() {
             <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-3.5">
               <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
                 <Database className="h-4 w-4" />
-                <span>Saved in SQLite DB (context.db)</span>
+                <span>Saved in Supabase</span>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
-                Credentials and session metadata are stored in your local SQLite table <code className="font-mono text-[10px] bg-surface-2 px-1 rounded">users</code>. Ready to link with Supabase later.
+                Account details and password hashes are stored in Supabase. Your session stays in this browser.
               </p>
             </div>
 
@@ -355,10 +355,10 @@ export default function AuthPage() {
                 {isLoading ? (
                   <span className="flex items-center gap-2">
                     <span className="h-3.5 w-3.5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                    Saving to SQLite...
+                    Saving account...
                   </span>
                 ) : (
-                  <span>{mode === 'signin' ? 'Sign In & Save' : 'Create & Save in SQLite'}</span>
+                  <span>{mode === 'signin' ? 'Sign In & Save' : 'Create Account'}</span>
                 )}
               </Button>
             </form>

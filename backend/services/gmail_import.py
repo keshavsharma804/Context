@@ -343,12 +343,9 @@ def index_emails(days=None):
 
     # Store sent emails (source=sent, no needs_reply)
     for s in sent:
-        conn.execute("DELETE FROM emails WHERE uid = ?", (s["uid"],))
+        conn.execute('DELETE FROM context.emails WHERE uid = %s', (s["uid"],))
         conn.execute(
-            "INSERT INTO emails (uid, from_addr, from_name, to_addr, subject, "
-            "body_snippet, received_at, category, needs_reply, replied, "
-            "thread_key, source, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 'normal', 0, 1, ?, 'sent', ?)",
+            "INSERT INTO context.emails (uid, from_addr, from_name, to_addr, subject, body_snippet, received_at, category, needs_reply, replied, thread_key, source, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, 'normal', 0, 1, %s, 'sent', %s)",
             (s["uid"], s["from_addr"], s["from_name"], s["to_addr"],
              s["subject"], s["body_snippet"], s["received_at"],
              s["thread_key"], now),
@@ -358,12 +355,11 @@ def index_emails(days=None):
         promise = extract_promise(s["body_snippet"])
         if promise:
             existing = conn.execute(
-                "SELECT id FROM promises WHERE source = ?", (s["uid"],)
+                'SELECT id FROM context.promises WHERE source = %s', (s["uid"],)
             ).fetchone()
             if not existing:
                 conn.execute(
-                    "INSERT INTO promises (who, what, by_when, source, created_at) "
-                    "VALUES (?, ?, ?, ?, ?)",
+                    'INSERT INTO context.promises (who, what, by_when, source, created_at) VALUES (%s, %s, %s, %s, %s)',
                     (s["to_addr"], promise, None, s["uid"], now),
                 )
                 promises_found += 1
@@ -388,12 +384,9 @@ def index_emails(days=None):
             and "no-reply" not in i["from_addr"].lower()
         )
 
-        conn.execute("DELETE FROM emails WHERE uid = ?", (i["uid"],))
+        conn.execute('DELETE FROM context.emails WHERE uid = %s', (i["uid"],))
         conn.execute(
-            "INSERT INTO emails (uid, from_addr, from_name, to_addr, subject, "
-            "body_snippet, received_at, category, needs_reply, replied, "
-            "thread_key, source, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inbox', ?)",
+            "INSERT INTO context.emails (uid, from_addr, from_name, to_addr, subject, body_snippet, received_at, category, needs_reply, replied, thread_key, source, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'inbox', %s)",
             (i["uid"], i["from_addr"], i["from_name"], i["to_addr"],
              i["subject"], i["body_snippet"], i["received_at"], cat,
              1 if needs_reply else 0, 1 if replied else 0,
@@ -405,13 +398,11 @@ def index_emails(days=None):
         company = detect_company_from_addr(i["from_addr"], i["subject"])
         if company and cat in ("application", "interview"):
             existing = conn.execute(
-                "SELECT id FROM applications WHERE company = ? "
-                "AND status IN ('applied','interview')", (company,)
+                "SELECT id FROM context.applications WHERE company = %s AND status IN ('applied','interview')", (company,)
             ).fetchone()
             if not existing:
                 conn.execute(
-                    "INSERT INTO applications (company, status, applied_at, "
-                    "notes, created_at) VALUES (?, 'applied', ?, ?, ?)",
+                    "INSERT INTO context.applications (company, status, applied_at, notes, created_at) VALUES (%s, 'applied', %s, %s, %s)",
                     (company, i["received_at"][:10],
                      f"auto-detected from email: {i['subject'][:100]}", now),
                 )
@@ -419,12 +410,11 @@ def index_emails(days=None):
 
         if company and cat == "interview":
             existing = conn.execute(
-                "SELECT id FROM interviews WHERE company = ?", (company,)
+                'SELECT id FROM context.interviews WHERE company = %s', (company,)
             ).fetchone()
             if not existing:
                 conn.execute(
-                    "INSERT INTO interviews (company, scheduled_at, notes, created_at) "
-                    "VALUES (?, ?, ?, ?)",
+                    'INSERT INTO context.interviews (company, scheduled_at, notes, created_at) VALUES (%s, %s, %s, %s)',
                     (company, "TBD (see email)",
                      f"from: {i['subject'][:150]}", now),
                 )
@@ -453,23 +443,18 @@ def gmail_brief():
                 "recent_promises": [], "total_emails": 0, "recent_app_email": []}
 
     conn = get_conn()
-    total = conn.execute("SELECT COUNT(*) FROM emails").fetchone()[0]
+    total = conn.execute('SELECT COUNT(*) FROM context.emails').fetchone()[0]
 
     unanswered = conn.execute(
-        "SELECT from_addr, from_name, subject, body_snippet, received_at "
-        "FROM emails WHERE needs_reply = 1 AND source = 'inbox' "
-        "ORDER BY received_at DESC LIMIT 8"
+        "SELECT from_addr, from_name, subject, body_snippet, received_at FROM context.emails WHERE needs_reply = 1 AND source = 'inbox' ORDER BY received_at DESC LIMIT 8"
     ).fetchall()
 
     recent_promises = conn.execute(
-        "SELECT who, what, by_when, created_at FROM promises "
-        "WHERE resolved = 0 ORDER BY created_at DESC LIMIT 8"
+        'SELECT who, what, by_when, created_at FROM context.promises WHERE resolved = 0 ORDER BY created_at DESC LIMIT 8'
     ).fetchall()
 
     recent_app_email = conn.execute(
-        "SELECT from_addr, subject, received_at FROM emails "
-        "WHERE source = 'inbox' AND category IN ('application','interview','offer','rejection') "
-        "ORDER BY received_at DESC LIMIT 6"
+        "SELECT from_addr, subject, received_at FROM context.emails WHERE source = 'inbox' AND category IN ('application','interview','offer','rejection') ORDER BY received_at DESC LIMIT 6"
     ).fetchall()
 
     conn.close()

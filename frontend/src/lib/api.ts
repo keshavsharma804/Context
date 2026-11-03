@@ -1120,7 +1120,7 @@ export const deleteSavingGoal = (id: number) =>
 
 
 
-// ─── Authentication & User Accounts (SQLite) ──────────────────────────────────
+// ─── Authentication & User Accounts (Supabase PostgreSQL) ──────────────────────────────────
 
 export interface AuthUser {
   id: string

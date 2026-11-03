@@ -1475,12 +1475,12 @@ export default function SettingsPage() {
               <h2 className="text-base font-bold">Danger Zone</h2>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Hold the button to clear all locally indexed files, emails, people, and spends.
+              Hold the button to clear indexed files, emails, people, and spends from Supabase.
             </p>
 
             <div className="flex items-center justify-between">
               <p className="text-[11px] text-muted-foreground max-w-sm">
-                Clearing resets the local database index. Your app credentials stay intact.
+                Clearing removes indexed data from Supabase. Your account credentials stay intact.
               </p>
               <HoldButton
                 label="Clear all data"
@@ -1510,7 +1510,7 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-foreground">Gmail IMAP</h3>
-                  <p className="text-[11px] text-muted-foreground">Index emails locally over TLS.</p>
+                  <p className="text-[11px] text-muted-foreground">Sync emails through your backend over TLS.</p>
                 </div>
               </div>
               <Badge variant={config.gmail_connected ? 'success' : 'secondary'} className="text-[10px]">
@@ -1611,9 +1611,9 @@ export default function SettingsPage() {
 
           {/* Local Data Export & Rescan */}
           <div className="rounded-3xl border border-border/70 bg-card/75 p-6 backdrop-blur-xl shadow-sm">
-            <h3 className="text-sm font-bold text-foreground mb-1">Local Data & Backups</h3>
+            <h3 className="text-sm font-bold text-foreground mb-1">Data & Backups</h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Your files and SQLite database live completely on this machine.
+              Original files stay on this machine. Indexed content and app records are stored in Supabase.
             </p>
 
             <div className="flex flex-wrap gap-2">

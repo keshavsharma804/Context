@@ -11,7 +11,7 @@ from services.rag import reindex_all
 
 # Clean any spend chunks with broken IDs
 conn = get_conn()
-conn.execute("DELETE FROM chunks WHERE source_type = 'spend'")
+conn.execute("DELETE FROM context.chunks WHERE source_type = 'spend'")
 conn.commit()
 conn.close()
 print("Cleared old spend chunks")

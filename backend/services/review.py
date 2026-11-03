@@ -36,12 +36,7 @@ def generate_weekly_review() -> dict:
 
     # 1. Spends this week
     spend_rows = conn.execute(
-        """
-        SELECT amount, category, merchant, spent_at
-        FROM spends
-        WHERE spent_at >= ? AND spent_at <= ?
-        ORDER BY amount DESC
-        """,
+        '\n        SELECT amount, category, merchant, spent_at\n        FROM context.spends\n        WHERE spent_at >= %s AND spent_at <= %s\n        ORDER BY amount DESC\n        ',
         (start_iso, end_iso),
     ).fetchall()
 
@@ -60,7 +55,7 @@ def generate_weekly_review() -> dict:
     prev_start_iso = (start_date - timedelta(days=7)).isoformat()
     prev_end_iso = (start_date - timedelta(days=1)).isoformat()
     prev_rows = conn.execute(
-        "SELECT amount FROM spends WHERE spent_at >= ? AND spent_at <= ?",
+        'SELECT amount FROM context.spends WHERE spent_at >= %s AND spent_at <= %s',
         (prev_start_iso, prev_end_iso),
     ).fetchall()
     prev_spent = sum(r["amount"] for r in prev_rows)
@@ -74,11 +69,7 @@ def generate_weekly_review() -> dict:
 
     # Get habit logs in this week
     habit_logs = conn.execute(
-        """
-        SELECT habit_id, date, status
-        FROM habit_logs
-        WHERE date >= ? AND date <= ?
-        """,
+        '\n        SELECT habit_id, date, status\n        FROM context.habit_logs\n        WHERE date >= %s AND date <= %s\n        ',
         (start_iso, end_iso),
     ).fetchall()
 
@@ -100,30 +91,20 @@ def generate_weekly_review() -> dict:
 
     # 3. People touched base with
     recent_people = conn.execute(
-        """
-        SELECT name, last_contacted
-        FROM people
-        WHERE last_contacted IS NOT NULL AND last_contacted >= ?
-        ORDER BY last_contacted DESC
-        LIMIT 5
-        """,
+        '\n        SELECT name, last_contacted\n        FROM context.people\n        WHERE last_contacted IS NOT NULL AND last_contacted >= %s\n        ORDER BY last_contacted DESC\n        LIMIT 5\n        ',
         (start_iso,),
     ).fetchall()
     people_contacted = [dict(r) for r in recent_people]
 
     # 4. Debts settled this week
     settled_debts = conn.execute(
-        """
-        SELECT person, direction, amount
-        FROM debts
-        WHERE settled = 1 AND settled_at >= ?
-        """,
+        '\n        SELECT person, direction, amount\n        FROM context.debts\n        WHERE settled = 1 AND settled_at >= %s\n        ',
         (start_iso,),
     ).fetchall()
     debts_settled_count = len(settled_debts)
 
     # 5. File activity
-    file_count_row = conn.execute("SELECT COUNT(*) as c FROM files").fetchone()
+    file_count_row = conn.execute('SELECT COUNT(*) as c FROM context.files').fetchone()
     total_files = file_count_row["c"] if file_count_row else 0
 
     conn.close()

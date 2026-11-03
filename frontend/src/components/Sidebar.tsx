@@ -13,7 +13,6 @@ import {
   PiggyBank,
   Repeat,
   Settings,
-  ShieldCheck,
   Sparkles,
   UserRound,
   Users,
@@ -109,7 +108,7 @@ function Logo({ compact = false }: { compact?: boolean }) {
             </span>
           </div>
           <span className="mt-0.5 font-mono text-[8.5px] uppercase tracking-wider text-muted-foreground/60">
-            Local Silicon · v2.4
+            Context OS · v2.4
           </span>
         </div>
       )}
@@ -343,22 +342,6 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
             <span className="font-mono text-[9px] text-muted-foreground/60 uppercase">G S</span>
           </NavLink>
 
-          {/* Local-First Silicon Security Badge */}
-          <div className="rounded-xl border border-border/60 bg-surface-2/50 p-2.5 shadow-inner mt-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground/90 font-mono uppercase tracking-wider">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                Local Silicon
-              </div>
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-            </div>
-            <p className="mt-1 text-[9.5px] leading-relaxed text-muted-foreground/60">
-              AES-256 local encrypted SQLite context.db
-            </p>
-          </div>
         </div>
       </aside>
 

@@ -15,11 +15,10 @@ def add_spend(amount, merchant, category="other", spent_at=None):
     today = (spent_at or datetime.now().date().isoformat())
     conn = get_conn()
     cur = conn.execute(
-        "INSERT INTO spends (amount, merchant, category, spent_at, created_at) "
-        "VALUES (?, ?, ?, ?, ?)",
+        'INSERT INTO context.spends (amount, merchant, category, spent_at, created_at) VALUES (%s, %s, %s, %s, %s) RETURNING id',
         (float(amount), (merchant or "").strip(), (category or "other").lower(), today, now),
     )
-    sid = cur.lastrowid          # ← capture ID from same connection
+    sid = cur.fetchone()[0]          # ← capture ID from same connection
     conn.commit()
     conn.close()
 
@@ -39,7 +38,7 @@ def add_spend(amount, merchant, category="other", spent_at=None):
 
 def update_spend(spend_id, amount=None, merchant=None, category=None, spent_at=None):
     conn = get_conn()
-    cur = conn.execute("SELECT * FROM spends WHERE id = ?", (spend_id,))
+    cur = conn.execute('SELECT * FROM context.spends WHERE id = %s', (spend_id,))
     row = cur.fetchone()
     if not row:
         conn.close()
@@ -52,7 +51,7 @@ def update_spend(spend_id, amount=None, merchant=None, category=None, spent_at=N
     new_spent_at = spent_at.strip() if spent_at is not None else current["spent_at"]
 
     conn.execute(
-        "UPDATE spends SET amount = ?, merchant = ?, category = ?, spent_at = ? WHERE id = ?",
+        'UPDATE context.spends SET amount = %s, merchant = %s, category = %s, spent_at = %s WHERE id = %s',
         (new_amount, new_merchant, new_category, new_spent_at, spend_id),
     )
     conn.commit()
@@ -82,10 +81,10 @@ def update_spend(spend_id, amount=None, merchant=None, category=None, spent_at=N
 
 def delete_spend(spend_id):
     conn = get_conn()
-    cur = conn.execute("DELETE FROM spends WHERE id = ?", (spend_id,))
+    cur = conn.execute('DELETE FROM context.spends WHERE id = %s', (spend_id,))
     deleted = cur.rowcount > 0
     if deleted:
-        conn.execute("DELETE FROM chunks WHERE source_type = 'spend' AND source_id = ?", (str(spend_id),))
+        conn.execute("DELETE FROM context.chunks WHERE source_type = 'spend' AND source_id = %s", (str(spend_id),))
     conn.commit()
     conn.close()
     return deleted
@@ -93,10 +92,10 @@ def delete_spend(spend_id):
 
 def set_budget(category, amount, period="month"):
     conn = get_conn()
-    conn.execute("DELETE FROM budgets WHERE category = ?", (category.lower(),))
+    conn.execute('DELETE FROM context.budgets WHERE category = %s', (category.lower(),))
     if float(amount) > 0:
         conn.execute(
-            "INSERT INTO budgets (category, amount, period, created_at) VALUES (?, ?, ?, ?)",
+            'INSERT INTO context.budgets (category, amount, period, created_at) VALUES (%s, %s, %s, %s)',
             (category.lower(), float(amount), period, datetime.now().isoformat(timespec="seconds")),
         )
     conn.commit()
@@ -105,7 +104,7 @@ def set_budget(category, amount, period="month"):
 
 def delete_budget(category):
     conn = get_conn()
-    cur = conn.execute("DELETE FROM budgets WHERE category = ?", (category.lower(),))
+    cur = conn.execute('DELETE FROM context.budgets WHERE category = %s', (category.lower(),))
     deleted = cur.rowcount > 0
     conn.commit()
     conn.close()
@@ -127,27 +126,22 @@ def summary(period="month"):
     start, end = period_range(period)
     conn = get_conn()
     total = conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM spends WHERE spent_at BETWEEN ? AND ?",
+        'SELECT COALESCE(SUM(amount), 0) FROM context.spends WHERE spent_at BETWEEN %s AND %s',
         (start, end),
     ).fetchone()[0]
     by_cat = conn.execute(
-        "SELECT category, SUM(amount) as total, COUNT(*) as count "
-        "FROM spends WHERE spent_at BETWEEN ? AND ? "
-        "GROUP BY category ORDER BY total DESC",
+        'SELECT category, SUM(amount) as total, COUNT(*) as count FROM context.spends WHERE spent_at BETWEEN %s AND %s GROUP BY category ORDER BY total DESC',
         (start, end),
     ).fetchall()
     top_merchants = conn.execute(
-        "SELECT merchant, SUM(amount) as total, COUNT(*) as count "
-        "FROM spends WHERE spent_at BETWEEN ? AND ? AND merchant != '' "
-        "GROUP BY merchant ORDER BY total DESC LIMIT 5",
+        "SELECT merchant, SUM(amount) as total, COUNT(*) as count FROM context.spends WHERE spent_at BETWEEN %s AND %s AND merchant != '' GROUP BY merchant ORDER BY total DESC LIMIT 5",
         (start, end),
     ).fetchall()
-    budgets = conn.execute("SELECT category, amount FROM budgets").fetchall()
+    budgets = conn.execute('SELECT category, amount FROM context.budgets').fetchall()
     budget_status = []
     for b in budgets:
         spent = conn.execute(
-            "SELECT COALESCE(SUM(amount), 0) FROM spends "
-            "WHERE category = ? AND spent_at BETWEEN ? AND ?",
+            'SELECT COALESCE(SUM(amount), 0) FROM context.spends WHERE category = %s AND spent_at BETWEEN %s AND %s',
             (b["category"], start, end),
         ).fetchone()[0]
         budget_status.append({
@@ -176,9 +170,7 @@ def summary(period="month"):
 def transactions_in_range(start, end, limit=250):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT id, amount, merchant, category, spent_at, created_at "
-        "FROM spends WHERE spent_at BETWEEN ? AND ? "
-        "ORDER BY spent_at DESC, id DESC LIMIT ?",
+        'SELECT id, amount, merchant, category, spent_at, created_at FROM context.spends WHERE spent_at BETWEEN %s AND %s ORDER BY spent_at DESC, id DESC LIMIT %s',
         (start, end, limit),
     ).fetchall()
     conn.close()
@@ -191,8 +183,7 @@ def daily_trend(days=14):
     start = today - timedelta(days=days - 1)
     conn = get_conn()
     rows = conn.execute(
-        "SELECT spent_at, COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count "
-        "FROM spends WHERE spent_at BETWEEN ? AND ? GROUP BY spent_at",
+        'SELECT spent_at, COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM context.spends WHERE spent_at BETWEEN %s AND %s GROUP BY spent_at',
         (start.isoformat(), today.isoformat()),
     ).fetchall()
     conn.close()
@@ -222,11 +213,11 @@ def compare_periods(period="week"):
         last_end = last_month_end
     conn = get_conn()
     this_total = conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM spends WHERE spent_at BETWEEN ? AND ?",
+        'SELECT COALESCE(SUM(amount), 0) FROM context.spends WHERE spent_at BETWEEN %s AND %s',
         (this_start.isoformat(), today.isoformat()),
     ).fetchone()[0]
     last_total = conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM spends WHERE spent_at BETWEEN ? AND ?",
+        'SELECT COALESCE(SUM(amount), 0) FROM context.spends WHERE spent_at BETWEEN %s AND %s',
         (last_start_dt.isoformat(), last_end.isoformat()),
     ).fetchone()[0]
     conn.close()

@@ -74,7 +74,7 @@ export function ContextSeal({ className = '', size = 42 }: { className?: string;
         className
       )}
       style={{ width: size, height: size }}
-      data-ui-tooltip="Context Hardware Vault · 100% Local Silicon"
+      data-ui-tooltip="Context Vault · Client-side encryption"
     >
       {/* Authentic inner double border */}
       <div className="absolute inset-[2.5px] rounded border border-stone-800 pointer-events-none group-hover:border-stone-700 transition-colors" />

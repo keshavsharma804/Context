@@ -17,7 +17,8 @@ interface AuthState {
   updateProfile: (updates: Partial<User>) => void
 }
 
-const AUTH_STORAGE_KEY = 'context:auth:user'
+// Local SQLite account snapshots do not identify accounts in the new database.
+const AUTH_STORAGE_KEY = 'context:auth:supabase:user'
 const REMEMBER_STORAGE_KEY = 'context:auth:remember'
 
 function getInitialUser(): User | null {

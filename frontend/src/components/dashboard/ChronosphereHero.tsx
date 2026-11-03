@@ -21,7 +21,7 @@ const CHRONO_LINES: Record<DayPhase, string> = {
 const SHANI_QUOTES = [
   'Steady orbit ahead! ✨',
   "You're doing amazing! 💫",
-  'Local silicon encrypted & ready.',
+  'Your context, connected & ready.',
   'Atmosphere optimal for deep work. 🚀',
   'Take a mindful breath. 🌿',
   'Ready whenever you are! 🛸',
@@ -514,7 +514,7 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
               <span className="chrono-beacon-ping" />
             </div>
             <span className="chrono-telemetry-chip">
-              {telemetryOpen ? 'LOCAL SILICON · AES-256' : 'ORBITAL SYNC'}
+              {telemetryOpen ? 'SUPABASE · CONNECTED' : 'ORBITAL SYNC'}
             </span>
           </button>
         </div>

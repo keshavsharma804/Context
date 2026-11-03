@@ -79,12 +79,7 @@ def add_subscription(
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_conn()
     cur = conn.execute(
-        """
-        INSERT INTO subscriptions (
-            name, amount, billing_cycle, category, next_renewal,
-            payment_method, auto_renew, notes, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
+        '\n        INSERT INTO context.subscriptions (\n            name, amount, billing_cycle, category, next_renewal,\n            payment_method, auto_renew, notes, created_at\n        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
         (
             clean_name,
             float(amount),
@@ -98,7 +93,7 @@ def add_subscription(
         ),
     )
     conn.commit()
-    sub_id = cur.lastrowid
+    sub_id = cur.fetchone()[0]
     conn.close()
 
     return get_subscription(sub_id)
@@ -117,7 +112,7 @@ def update_subscription(
 ) -> dict | None:
     conn = get_conn()
     existing = conn.execute(
-        "SELECT * FROM subscriptions WHERE id = ?", (sub_id,)
+        'SELECT * FROM context.subscriptions WHERE id = %s', (sub_id,)
     ).fetchone()
     if not existing:
         conn.close()
@@ -149,12 +144,7 @@ def update_subscription(
     new_notes = notes.strip() if notes is not None else existing["notes"]
 
     conn.execute(
-        """
-        UPDATE subscriptions SET
-            name = ?, amount = ?, billing_cycle = ?, category = ?,
-            next_renewal = ?, payment_method = ?, auto_renew = ?, notes = ?
-        WHERE id = ?
-        """,
+        '\n        UPDATE context.subscriptions SET\n            name = %s, amount = %s, billing_cycle = %s, category = %s,\n            next_renewal = %s, payment_method = %s, auto_renew = %s, notes = %s\n        WHERE id = %s\n        ',
         (
             new_name,
             new_amount,
@@ -175,7 +165,7 @@ def update_subscription(
 
 def delete_subscription(sub_id: int) -> bool:
     conn = get_conn()
-    cur = conn.execute("DELETE FROM subscriptions WHERE id = ?", (sub_id,))
+    cur = conn.execute('DELETE FROM context.subscriptions WHERE id = %s', (sub_id,))
     conn.commit()
     deleted = cur.rowcount > 0
     conn.close()
@@ -185,7 +175,7 @@ def delete_subscription(sub_id: int) -> bool:
 def get_subscription(sub_id: int) -> dict | None:
     conn = get_conn()
     row = conn.execute(
-        "SELECT * FROM subscriptions WHERE id = ?", (sub_id,)
+        'SELECT * FROM context.subscriptions WHERE id = %s', (sub_id,)
     ).fetchone()
     conn.close()
     if not row:
@@ -205,7 +195,7 @@ def get_subscription(sub_id: int) -> dict | None:
 def list_subscriptions() -> list[dict]:
     conn = get_conn()
     rows = conn.execute(
-        "SELECT * FROM subscriptions ORDER BY next_renewal ASC, amount DESC"
+        'SELECT * FROM context.subscriptions ORDER BY next_renewal ASC, amount DESC'
     ).fetchall()
     conn.close()
 
@@ -264,7 +254,7 @@ def renew_subscription(sub_id: int, log_spend: bool = True) -> dict | None:
 
     conn = get_conn()
     conn.execute(
-        "UPDATE subscriptions SET next_renewal = ? WHERE id = ?",
+        'UPDATE context.subscriptions SET next_renewal = %s WHERE id = %s',
         (next_date, sub_id),
     )
     conn.commit()

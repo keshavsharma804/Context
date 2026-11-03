@@ -77,12 +77,11 @@ def add_chunk(source_type, source_id, title, content, metadata=None):
         return
     conn = get_conn()
     conn.execute(
-        "DELETE FROM chunks WHERE source_type = ? AND source_id = ?",
+        'DELETE FROM context.chunks WHERE source_type = %s AND source_id = %s',
         (source_type, str(source_id)),
     )
     conn.execute(
-        "INSERT INTO chunks (title, content, source_type, source_id, metadata) "
-        "VALUES (?, ?, ?, ?, ?)",
+        'INSERT INTO context.chunks (title, content, source_type, source_id, metadata) VALUES (%s, %s, %s, %s, %s)',
         ((title or "")[:200], content, source_type, str(source_id), json.dumps(metadata or {})),
     )
     conn.commit()
@@ -91,15 +90,14 @@ def add_chunk(source_type, source_id, title, content, metadata=None):
 
 def add_chunks_for_file(path, name, category, content):
     conn = get_conn()
-    conn.execute("DELETE FROM chunks WHERE source_type = 'file' AND source_id = ?", (path,))
+    conn.execute("DELETE FROM context.chunks WHERE source_type = 'file' AND source_id = %s", (path,))
     conn.commit()
     conn.close()
     pieces = chunk_text(content) or [f"{name} ({category})"]
     conn = get_conn()
     for i, piece in enumerate(pieces):
         conn.execute(
-            "INSERT INTO chunks (title, content, source_type, source_id, metadata) "
-            "VALUES (?, ?, 'file', ?, ?)",
+            "INSERT INTO context.chunks (title, content, source_type, source_id, metadata) VALUES (%s, %s, 'file', %s, %s)",
             (name[:200], piece, path, json.dumps({"category": category, "chunk": i})),
         )
     conn.commit()
@@ -124,15 +122,20 @@ def _query_groups(query):
 def _build_and_query(groups):
     parts = []
     for g in groups:
-        parts.append(f'"{g[0]}"' if len(g) == 1 else "(" + " OR ".join(f'"{t}"' for t in g) + ")")
-    return " AND ".join(parts)
+        parts.append(_ts_term(g[0]) if len(g) == 1 else "(" + " | ".join(_ts_term(t) for t in g) + ")")
+    return " & ".join(parts)
 
 
 def _build_or_query(groups):
     terms = []
     for g in groups:
         terms.extend(g)
-    return " OR ".join(f'"{t}"' for t in terms)
+    return " | ".join(_ts_term(t) for t in terms)
+
+
+def _ts_term(term):
+    # Quote lexemes for PostgreSQL tsquery; all SQL values remain bound parameters.
+    return "'" + term.replace("\\", "\\\\").replace("'", "''") + "'"
 
 
 def search_chunks(query, limit=15, source_type=None):
@@ -154,18 +157,15 @@ def search_chunks(query, limit=15, source_type=None):
         try:
             if source_type:
                 return conn.execute(
-                    "SELECT title, content, source_type, source_id, metadata, "
-                    "bm25(chunks) AS score FROM chunks "
-                    "WHERE chunks MATCH ? AND source_type = ? ORDER BY score LIMIT ?",
+                    "SELECT title, content, source_type, source_id, metadata, -ts_rank_cd(chunks.search_vector, query) AS score FROM context.chunks CROSS JOIN to_tsquery('simple', %s) AS query WHERE chunks.search_vector @@ query AND source_type = %s ORDER BY score LIMIT %s",
                     (q, source_type, fetch_limit),
                 ).fetchall()
             return conn.execute(
-                "SELECT title, content, source_type, source_id, metadata, "
-                "bm25(chunks) AS score FROM chunks "
-                "WHERE chunks MATCH ? ORDER BY score LIMIT ?",
+                "SELECT title, content, source_type, source_id, metadata, -ts_rank_cd(chunks.search_vector, query) AS score FROM context.chunks CROSS JOIN to_tsquery('simple', %s) AS query WHERE chunks.search_vector @@ query ORDER BY score LIMIT %s",
                 (q, fetch_limit),
             ).fetchall()
         except Exception:
+            conn.rollback()
             return []
 
     rows = _run(and_q)
@@ -192,26 +192,30 @@ def search_chunks(query, limit=15, source_type=None):
     return deduped
 
 
-def index_all_files():
+def index_all_files(stop_event=None):
     conn = get_conn()
-    rows = conn.execute("SELECT path, name, category, content FROM files").fetchall()
+    rows = conn.execute('SELECT path, name, category, content FROM context.files').fetchall()
     conn.close()
     print(f"[rag] indexing {len(rows)} files...")
     for i, r in enumerate(rows):
+        if stop_event is not None and stop_event.is_set():
+            return
         add_chunks_for_file(r["path"], r["name"], r["category"], r["content"] or "")
         if i and i % 100 == 0:
             print(f"[rag] {i}/{len(rows)}")
     print(f"[rag] files done")
 
 
-def index_all_emails():
+def index_all_emails(stop_event=None):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT uid, subject, from_addr, from_name, body_snippet, received_at, category, source FROM emails"
+        'SELECT uid, subject, from_addr, from_name, body_snippet, received_at, category, source FROM context.emails'
     ).fetchall()
     conn.close()
     print(f"[rag] indexing {len(rows)} emails...")
     for r in rows:
+        if stop_event is not None and stop_event.is_set():
+            return
         content = (f"From: {r['from_name']} <{r['from_addr']}>\nSubject: {r['subject']}\n"
                    f"Date: {r['received_at']}\n\n{r['body_snippet']}")
         add_chunk("email", r["uid"], r["subject"], content,
@@ -220,14 +224,16 @@ def index_all_emails():
     print(f"[rag] emails done")
 
 
-def index_all_events():
+def index_all_events(stop_event=None):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT id, title, start_at, end_at, category, company, location, description FROM events"
+        'SELECT id, title, start_at, end_at, category, company, location, description FROM context.events'
     ).fetchall()
     conn.close()
     print(f"[rag] indexing {len(rows)} events...")
     for r in rows:
+        if stop_event is not None and stop_event.is_set():
+            return
         content = f"Event: {r['title']}\nWhen: {r['start_at']} -> {r['end_at']}\nCategory: {r['category']}\n"
         if r["company"]:
             content += f"Company: {r['company']}\n"
@@ -240,27 +246,28 @@ def index_all_events():
     print(f"[rag] events done")
 
 
-def index_all_manual():
+def index_all_manual(stop_event=None):
     conn = get_conn()
-    rows = conn.execute("SELECT id, kind, payload, created_at FROM manual").fetchall()
+    rows = conn.execute('SELECT id, kind, payload, created_at FROM context.manual').fetchall()
     conn.close()
     for r in rows:
+        if stop_event is not None and stop_event.is_set():
+            return
         title = f"{r['kind']}: {r['payload'][:80]}"
         add_chunk("manual", str(r["id"]), title, r["payload"],
                   {"kind": r["kind"], "created_at": r["created_at"]})
 
 
-def index_all_people():
+def index_all_people(stop_event=None):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT p.id, p.name, p.birthday, p.last_contacted, "
-        "GROUP_CONCAT(pf.fact || ' [' || pf.category || ']', ' | ') as facts "
-        "FROM people p LEFT JOIN person_facts pf ON pf.person_id = p.id AND pf.resolved = 0 "
-        "GROUP BY p.id"
+        "SELECT p.id, p.name, p.birthday, p.last_contacted, string_agg(pf.fact || ' [' || pf.category || ']', ' | ') as facts FROM context.people p LEFT JOIN context.person_facts pf ON pf.person_id = p.id AND pf.resolved = 0 GROUP BY p.id"
     ).fetchall()
     conn.close()
     print(f"[rag] indexing {len(rows)} people...")
     for r in rows:
+        if stop_event is not None and stop_event.is_set():
+            return
         content = f"Person: {r['name']}\n"
         if r["birthday"]:
             content += f"Birthday: {r['birthday']}\n"
@@ -273,14 +280,16 @@ def index_all_people():
     print(f"[rag] people done")
 
 
-def index_all_spends():
+def index_all_spends(stop_event=None):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT id, amount, merchant, category, spent_at FROM spends ORDER BY spent_at DESC LIMIT 2000"
+        'SELECT id, amount, merchant, category, spent_at FROM context.spends ORDER BY spent_at DESC LIMIT 2000'
     ).fetchall()
     conn.close()
     print(f"[rag] indexing {len(rows)} spends...")
     for r in rows:
+        if stop_event is not None and stop_event.is_set():
+            return
         content = f"₹{r['amount']:.0f} spent on {r['merchant']} ({r['category']}) on {r['spent_at']}"
         add_chunk("spend", str(r["id"]), f"₹{r['amount']:.0f} {r['merchant']}", content,
                   {"amount": r["amount"], "merchant": r["merchant"],
@@ -288,14 +297,16 @@ def index_all_spends():
     print(f"[rag] spends done")
 
 
-def index_all_patterns():
+def index_all_patterns(stop_event=None):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT id, kind, title, detail, severity FROM patterns_detected WHERE dismissed = 0"
+        'SELECT id, kind, title, detail, severity FROM context.patterns_detected WHERE dismissed = 0'
     ).fetchall()
     conn.close()
     print(f"[rag] indexing {len(rows)} patterns...")
     for r in rows:
+        if stop_event is not None and stop_event.is_set():
+            return
         content = f"Pattern: {r['title']}\nSeverity: {r['severity']}\nDetail: {r['detail']}"
         add_chunk("pattern", str(r["id"]), r["title"], content,
                   {"kind": r["kind"], "severity": r["severity"]})
@@ -313,12 +324,10 @@ def reindex_all():
     index_all_patterns()
     print("[rag] full reindex done")
 
-def index_everything():
-    index_all_files()
-    index_all_emails()
-    index_all_events()
-    index_all_manual()
-    index_all_people()
-    index_all_spends()
-    index_all_patterns()
+def index_everything(stop_event=None):
+    for index_stage in (index_all_files, index_all_emails, index_all_events,
+                        index_all_manual, index_all_people, index_all_spends, index_all_patterns):
+        if stop_event is not None and stop_event.is_set():
+            return
+        index_stage(stop_event=stop_event)
     print("[rag] all done")

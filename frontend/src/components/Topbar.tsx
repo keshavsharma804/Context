@@ -371,7 +371,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                       Session: Secure
                     </span>
-                    <span className="text-emerald-400 font-semibold">100% Local</span>
+                    <span className="text-emerald-400 font-semibold">Supabase Storage</span>
                   </div>
                 </div>
 

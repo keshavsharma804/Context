@@ -25,8 +25,7 @@ def detect_all():
 def detect_late_opening(days=30):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT name, downloaded, last_opened FROM files "
-        "WHERE category IN ('academic', 'report') AND downloaded > ? LIMIT 100",
+        "SELECT name, downloaded, last_opened FROM context.files WHERE category IN ('academic', 'report') AND downloaded > %s LIMIT 100",
         ((datetime.now() - timedelta(days=days)).isoformat(),),
     ).fetchall()
     conn.close()
@@ -54,14 +53,11 @@ def detect_browse_apply(days=14):
     conn = get_conn()
     since = (datetime.now() - timedelta(days=days)).isoformat(timespec="minutes")
     browses = conn.execute(
-        "SELECT COUNT(*) FROM history WHERE "
-        "(url LIKE '%linkedin.com/jobs%' OR url LIKE '%naukri%' OR url LIKE '%instahyre%' "
-        "OR url LIKE '%wellfound%' OR url LIKE '%/careers%' OR url LIKE '%internshala%') "
-        "AND last_visit > ?",
+        "SELECT COUNT(*) FROM context.history WHERE (url ILIKE '%%linkedin.com/jobs%%' OR url ILIKE '%%naukri%%' OR url ILIKE '%%instahyre%%' OR url ILIKE '%%wellfound%%' OR url ILIKE '%%/careers%%' OR url ILIKE '%%internshala%%') AND last_visit > %s",
         (since,),
     ).fetchone()[0]
     apps = conn.execute(
-        "SELECT COUNT(*) FROM applications WHERE applied_at > ?",
+        'SELECT COUNT(*) FROM context.applications WHERE applied_at > %s',
         ((datetime.now() - timedelta(days=days)).date().isoformat(),),
     ).fetchone()[0]
     conn.close()
@@ -80,10 +76,7 @@ def detect_spend_deadline(days=30):
     conn = get_conn()
     since = (datetime.now() - timedelta(days=days)).date().isoformat()
     deadlines = conn.execute(
-        "SELECT DISTINCT substr(start_at, 1, 10) FROM events "
-        "WHERE (title LIKE '%deadline%' OR title LIKE '%submission%' "
-        "OR title LIKE '%due%' OR title LIKE '%exam%' OR title LIKE '%assignment%') "
-        "AND start_at > ?",
+        "SELECT DISTINCT substr(start_at, 1, 10) FROM context.events WHERE (title ILIKE '%%deadline%%' OR title ILIKE '%%submission%%' OR title ILIKE '%%due%%' OR title ILIKE '%%exam%%' OR title ILIKE '%%assignment%%') AND start_at > %s",
         (since,),
     ).fetchall()
     deadline_set = {r[0] for r in deadlines}
@@ -92,7 +85,7 @@ def detect_spend_deadline(days=30):
         return []
 
     spends = conn.execute(
-        "SELECT amount, spent_at FROM spends WHERE spent_at > ?", (since,)
+        'SELECT amount, spent_at FROM context.spends WHERE spent_at > %s', (since,)
     ).fetchall()
     conn.close()
     if not spends:
@@ -129,8 +122,7 @@ def detect_silent_threads(days=7):
     conn = get_conn()
     since = (datetime.now() - timedelta(days=days)).isoformat()
     silent = conn.execute(
-        "SELECT from_name, from_addr, subject, received_at FROM emails "
-        "WHERE needs_reply = 1 AND received_at < ? ORDER BY received_at",
+        'SELECT from_name, from_addr, subject, received_at FROM context.emails WHERE needs_reply = 1 AND received_at < %s ORDER BY received_at',
         (since,),
     ).fetchall()
     conn.close()
@@ -166,7 +158,7 @@ def detect_weekend_spend(days=30):
     conn = get_conn()
     since = (datetime.now() - timedelta(days=days)).date().isoformat()
     rows = conn.execute(
-        "SELECT amount, spent_at FROM spends WHERE spent_at > ?", (since,)
+        'SELECT amount, spent_at FROM context.spends WHERE spent_at > %s', (since,)
     ).fetchall()
     conn.close()
     wk, wd = [], []
@@ -195,19 +187,18 @@ def save_patterns(patterns):
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_conn()
     conn.execute(
-        "DELETE FROM patterns_detected WHERE detected_at < ?",
+        'DELETE FROM context.patterns_detected WHERE detected_at < %s',
         ((datetime.now() - timedelta(days=2)).isoformat(),),
     )
     for p in patterns:
         existing = conn.execute(
-            "SELECT id FROM patterns_detected WHERE kind = ? AND detected_at > ?",
+            'SELECT id FROM context.patterns_detected WHERE kind = %s AND detected_at > %s',
             (p["kind"], (datetime.now() - timedelta(hours=6)).isoformat()),
         ).fetchone()
         if existing:
             continue
         conn.execute(
-            "INSERT INTO patterns_detected (kind, title, detail, severity, detected_at) "
-            "VALUES (?, ?, ?, ?, ?)",
+            'INSERT INTO context.patterns_detected (kind, title, detail, severity, detected_at) VALUES (%s, %s, %s, %s, %s)',
             (p["kind"], p["title"], p["detail"], p["severity"], now),
         )
     conn.commit()
@@ -217,10 +208,11 @@ def save_patterns(patterns):
 def get_patterns(limit=10):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT id, kind, title, detail, severity, detected_at "
-        "FROM patterns_detected WHERE dismissed = 0 "
-        "GROUP BY title HAVING MAX(detected_at) "
-        "ORDER BY detected_at DESC LIMIT ?",
+        'SELECT id, kind, title, detail, severity, detected_at FROM '
+        '(SELECT DISTINCT ON (title) id, kind, title, detail, severity, detected_at '
+        'FROM context.patterns_detected WHERE dismissed = 0 '
+        'ORDER BY title, detected_at DESC, id DESC) AS latest '
+        'ORDER BY detected_at DESC LIMIT %s',
         (limit,),
     ).fetchall()
     conn.close()
@@ -229,7 +221,7 @@ def get_patterns(limit=10):
 
 def dismiss_pattern(pattern_id):
     conn = get_conn()
-    conn.execute("UPDATE patterns_detected SET dismissed = 1 WHERE id = ?", (pattern_id,))
+    conn.execute('UPDATE context.patterns_detected SET dismissed = 1 WHERE id = %s', (pattern_id,))
     conn.commit()
     conn.close()
 

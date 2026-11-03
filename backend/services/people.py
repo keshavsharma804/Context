@@ -38,15 +38,15 @@ def get_or_create_person(name, source="manual"):
     if not name or len(name) < 2:
         return None
     conn = get_conn()
-    row = conn.execute("SELECT id FROM people WHERE name = ? COLLATE NOCASE", (name,)).fetchone()
+    row = conn.execute('SELECT id FROM context.people WHERE lower(name) = lower(%s)', (name,)).fetchone()
     if row:
         conn.close()
         return row["id"]
     cur = conn.execute(
-        "INSERT INTO people (name, source, created_at) VALUES (?, ?, ?)",
+        'INSERT INTO context.people (name, source, created_at) VALUES (%s, %s, %s) RETURNING id',
         (name, source, datetime.now().isoformat(timespec="seconds")),
     )
-    pid = cur.lastrowid
+    pid = cur.fetchone()[0]
     conn.commit()
     conn.close()
     return pid
@@ -60,12 +60,11 @@ def add_fact(person_name, fact, category=None, source="manual"):
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_conn()
     conn.execute(
-        "INSERT INTO person_facts (person_id, fact, category, source, created_at) "
-        "VALUES (?, ?, ?, ?, ?)",
+        'INSERT INTO context.person_facts (person_id, fact, category, source, created_at) VALUES (%s, %s, %s, %s, %s)',
         (pid, fact, category, source, now),
     )
     if category == "contact":
-        conn.execute("UPDATE people SET last_contacted = ? WHERE id = ?", (now, pid))
+        conn.execute('UPDATE context.people SET last_contacted = %s WHERE id = %s', (now, pid))
     conn.commit()
     conn.close()
 
@@ -86,7 +85,7 @@ def set_birthday(person_name, birthday):
     if not pid:
         return False
     conn = get_conn()
-    conn.execute("UPDATE people SET birthday = ? WHERE id = ?", (birthday.strip(), pid))
+    conn.execute('UPDATE context.people SET birthday = %s WHERE id = %s', (birthday.strip(), pid))
     conn.commit()
     conn.close()
     return True
@@ -97,7 +96,7 @@ def mark_contacted(person_name):
     if not pid:
         return False
     conn = get_conn()
-    conn.execute("UPDATE people SET last_contacted = ? WHERE id = ?",
+    conn.execute('UPDATE context.people SET last_contacted = %s WHERE id = %s',
                  (datetime.now().isoformat(timespec="seconds"), pid))
     conn.commit()
     conn.close()
@@ -108,10 +107,7 @@ def extract_people_from_emails():
     """Auto-create people from senders you've emailed with."""
     conn = get_conn()
     rows = conn.execute(
-        "SELECT DISTINCT from_name FROM emails "
-        "WHERE source = 'inbox' AND from_name != '' "
-        "AND from_addr NOT LIKE '%noreply%' AND from_addr NOT LIKE '%no-reply%' "
-        "AND from_addr NOT LIKE '%notification%'"
+        "SELECT DISTINCT from_name FROM context.emails WHERE source = 'inbox' AND from_name != '' AND from_addr NOT ILIKE '%%noreply%%' AND from_addr NOT ILIKE '%%no-reply%%' AND from_addr NOT ILIKE '%%notification%%'"
     ).fetchall()
     conn.close()
     count = 0
@@ -125,7 +121,7 @@ def extract_people_from_emails():
 def upcoming_birthdays(days=30):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT name, birthday FROM people WHERE birthday IS NOT NULL AND birthday != ''"
+        "SELECT name, birthday FROM context.people WHERE birthday IS NOT NULL AND birthday != ''"
     ).fetchall()
     conn.close()
     today = datetime.now().date()
@@ -154,9 +150,7 @@ def upcoming_birthdays(days=30):
 def people_needing_contact(days=14, limit=10):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT p.name, p.last_contacted, "
-        "(SELECT MAX(received_at) FROM emails WHERE from_name = p.name COLLATE NOCASE) as last_email "
-        "FROM people p"
+        'SELECT p.name, p.last_contacted, (SELECT MAX(received_at) FROM context.emails WHERE lower(from_name) = lower(p.name)) as last_email FROM context.people p'
     ).fetchall()
     conn.close()
     now = datetime.now()
@@ -182,13 +176,12 @@ def people_needing_contact(days=14, limit=10):
 
 def get_person(name):
     conn = get_conn()
-    p = conn.execute("SELECT * FROM people WHERE name = ? COLLATE NOCASE", (name,)).fetchone()
+    p = conn.execute('SELECT * FROM context.people WHERE lower(name) = lower(%s)', (name,)).fetchone()
     if not p:
         conn.close()
         return None
     facts = conn.execute(
-        "SELECT fact, category, created_at FROM person_facts "
-        "WHERE person_id = ? AND resolved = 0 ORDER BY created_at DESC",
+        'SELECT fact, category, created_at FROM context.person_facts WHERE person_id = %s AND resolved = 0 ORDER BY created_at DESC',
         (p["id"],),
     ).fetchall()
     conn.close()
@@ -203,7 +196,7 @@ def get_person(name):
 
 def people_brief():
     conn = get_conn()
-    total = conn.execute("SELECT COUNT(*) FROM people").fetchone()[0]
+    total = conn.execute('SELECT COUNT(*) FROM context.people').fetchone()[0]
     conn.close()
     return {
         "total": total,

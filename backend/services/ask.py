@@ -105,7 +105,7 @@ def _detect_person_name(question):
         from services.people import people_brief, get_person
         from core.db import get_conn
         conn = get_conn()
-        names = [r["name"] for r in conn.execute("SELECT name FROM people").fetchall()]
+        names = [r["name"] for r in conn.execute('SELECT name FROM context.people').fetchall()]
         conn.close()
         ql = question.lower()
         for n in names:

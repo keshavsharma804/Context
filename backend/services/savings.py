@@ -36,12 +36,7 @@ def add_goal(
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_conn()
     cur = conn.execute(
-        """
-        INSERT INTO saving_goals (
-            title, target_amount, current_amount, target_date,
-            category, emoji, notes, is_locked, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
+        '\n        INSERT INTO context.saving_goals (\n            title, target_amount, current_amount, target_date,\n            category, emoji, notes, is_locked, created_at\n        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
         (
             clean_title,
             float(target_amount),
@@ -55,7 +50,7 @@ def add_goal(
         ),
     )
     conn.commit()
-    goal_id = cur.lastrowid
+    goal_id = cur.fetchone()[0]
     conn.close()
 
     return get_goal(goal_id)
@@ -93,12 +88,7 @@ def update_goal(
 
     conn = get_conn()
     conn.execute(
-        """
-        UPDATE saving_goals
-        SET title = ?, target_amount = ?, current_amount = ?, target_date = ?,
-            category = ?, emoji = ?, notes = ?, is_locked = ?
-        WHERE id = ?
-        """,
+        '\n        UPDATE context.saving_goals\n        SET title = %s, target_amount = %s, current_amount = %s, target_date = %s,\n            category = %s, emoji = %s, notes = %s, is_locked = %s\n        WHERE id = %s\n        ',
         (
             new_title,
             new_target,
@@ -128,7 +118,7 @@ def add_funds(goal_id: int, amount: float) -> Optional[dict]:
 
 def delete_goal(goal_id: int) -> bool:
     conn = get_conn()
-    cur = conn.execute("DELETE FROM saving_goals WHERE id = ?", (goal_id,))
+    cur = conn.execute('DELETE FROM context.saving_goals WHERE id = %s', (goal_id,))
     conn.commit()
     deleted = cur.rowcount > 0
     conn.close()
@@ -137,7 +127,7 @@ def delete_goal(goal_id: int) -> bool:
 
 def get_goal(goal_id: int) -> Optional[dict]:
     conn = get_conn()
-    row = conn.execute("SELECT * FROM saving_goals WHERE id = ?", (goal_id,)).fetchone()
+    row = conn.execute('SELECT * FROM context.saving_goals WHERE id = %s', (goal_id,)).fetchone()
     conn.close()
     if not row:
         return None
@@ -155,7 +145,7 @@ def get_goal(goal_id: int) -> Optional[dict]:
 def list_goals() -> list[dict]:
     conn = get_conn()
     rows = conn.execute(
-        "SELECT * FROM saving_goals ORDER BY (current_amount >= target_amount) ASC, target_amount DESC"
+        'SELECT * FROM context.saving_goals ORDER BY (current_amount >= target_amount) ASC, target_amount DESC'
     ).fetchall()
     conn.close()
 

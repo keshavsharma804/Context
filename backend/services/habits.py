@@ -161,21 +161,20 @@ def _find_habit(conn, name_or_id):
     value = name_or_id
     if isinstance(value, int) or (isinstance(value, str) and value.strip().isdigit()):
         return conn.execute(
-            "SELECT * FROM habits WHERE id = ?", (int(value),)
+            'SELECT * FROM context.habits WHERE id = %s', (int(value),)
         ).fetchone()
     name = _clean_name(str(value or ""))
     if not name:
         return None
     return conn.execute(
-        "SELECT * FROM habits WHERE name = ? COLLATE NOCASE", (name,)
+        'SELECT * FROM context.habits WHERE lower(name) = lower(%s)', (name,)
     ).fetchone()
 
 
 def _create_habit(conn, name, emoji=None, color=None, target_per_week=7):
     now = datetime.now().isoformat(timespec="seconds")
     cur = conn.execute(
-        "INSERT INTO habits (name, emoji, color, target_per_week, created_at, archived) "
-        "VALUES (?, ?, ?, ?, ?, 0)",
+        'INSERT INTO context.habits (name, emoji, color, target_per_week, created_at, archived) VALUES (%s, %s, %s, %s, %s, 0) RETURNING id',
         (
             _clean_name(name),
             (emoji or DEFAULT_EMOJI).strip() or DEFAULT_EMOJI,
@@ -185,7 +184,7 @@ def _create_habit(conn, name, emoji=None, color=None, target_per_week=7):
         ),
     )
     conn.commit()
-    return cur.lastrowid
+    return cur.fetchone()[0]
 
 
 def add_habit(name, emoji=None, color=None, target_per_week=7):
@@ -202,8 +201,7 @@ def add_habit(name, emoji=None, color=None, target_per_week=7):
             target_per_week if target_per_week is not None else existing["target_per_week"]
         )
         conn.execute(
-            "UPDATE habits SET emoji = ?, color = ?, target_per_week = ?, archived = 0 "
-            "WHERE id = ?",
+            'UPDATE context.habits SET emoji = %s, color = %s, target_per_week = %s, archived = 0 WHERE id = %s',
             (next_emoji, next_color, next_target, existing["id"]),
         )
         conn.commit()
@@ -220,7 +218,7 @@ def archive_habit(name_or_id):
     if not row:
         conn.close()
         return False
-    conn.execute("UPDATE habits SET archived = 1 WHERE id = ?", (row["id"],))
+    conn.execute('UPDATE context.habits SET archived = 1 WHERE id = %s', (row["id"],))
     conn.commit()
     conn.close()
     return True
@@ -241,7 +239,7 @@ def update_habit(name_or_id, new_name=None, emoji=None, color=None, target_per_w
 
     if next_name.lower() != (row["name"] or "").lower():
         clash = conn.execute(
-            "SELECT id FROM habits WHERE name = ? COLLATE NOCASE AND id != ?",
+            'SELECT id FROM context.habits WHERE lower(name) = lower(%s) AND id != %s',
             (next_name, habit_id),
         ).fetchone()
         if clash:
@@ -255,7 +253,7 @@ def update_habit(name_or_id, new_name=None, emoji=None, color=None, target_per_w
     )
 
     conn.execute(
-        "UPDATE habits SET name = ?, emoji = ?, color = ?, target_per_week = ? WHERE id = ?",
+        'UPDATE context.habits SET name = %s, emoji = %s, color = %s, target_per_week = %s WHERE id = %s',
         (next_name, next_emoji, next_color, next_target, habit_id),
     )
     conn.commit()
@@ -280,15 +278,12 @@ def log_habit(name_or_id, date_value, status, note=None):
     else:
         habit_id = row["id"]
         if row["archived"]:
-            conn.execute("UPDATE habits SET archived = 0 WHERE id = ?", (habit_id,))
+            conn.execute('UPDATE context.habits SET archived = 0 WHERE id = %s', (habit_id,))
             conn.commit()
 
     now = datetime.now().isoformat(timespec="seconds")
     conn.execute(
-        "INSERT INTO habit_logs (habit_id, date, status, note, created_at) "
-        "VALUES (?, ?, ?, ?, ?) "
-        "ON CONFLICT(habit_id, date) DO UPDATE SET "
-        "status = excluded.status, note = excluded.note",
+        'INSERT INTO context.habit_logs (habit_id, date, status, note, created_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT(habit_id, date) DO UPDATE SET status = excluded.status, note = excluded.note',
         (habit_id, day, status, note or "", now),
     )
     conn.commit()
@@ -304,7 +299,7 @@ def clear_habit_log(name_or_id, date_value):
         conn.close()
         return get_habit(name_or_id)
     conn.execute(
-        "DELETE FROM habit_logs WHERE habit_id = ? AND date = ?",
+        'DELETE FROM context.habit_logs WHERE habit_id = %s AND date = %s',
         (row["id"], day),
     )
     conn.commit()
@@ -314,8 +309,7 @@ def clear_habit_log(name_or_id, date_value):
 
 def _log_map(conn, habit_id, start, end):
     rows = conn.execute(
-        "SELECT date, status, note FROM habit_logs "
-        "WHERE habit_id = ? AND date BETWEEN ? AND ? ORDER BY date",
+        'SELECT date, status, note FROM context.habit_logs WHERE habit_id = %s AND date BETWEEN %s AND %s ORDER BY date',
         (habit_id, start.isoformat(), end.isoformat()),
     ).fetchall()
     return {row["date"]: {"date": row["date"], "status": row["status"], "note": row["note"]} for row in rows}
@@ -337,8 +331,7 @@ def _last_days(conn, habit_id, days):
 
 def _window_count(conn, habit_id, start, end):
     return conn.execute(
-        "SELECT COUNT(*) FROM habit_logs "
-        "WHERE habit_id = ? AND status = 'done' AND date BETWEEN ? AND ?",
+        "SELECT COUNT(*) FROM context.habit_logs WHERE habit_id = %s AND status = 'done' AND date BETWEEN %s AND %s",
         (habit_id, start.isoformat(), end.isoformat()),
     ).fetchone()[0]
 
@@ -358,9 +351,7 @@ def _completion_month(conn, habit_id):
 def habit_streak(habit_id):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT date, status FROM habit_logs "
-        "WHERE habit_id = ? AND status IN ('done', 'skipped') "
-        "ORDER BY date DESC LIMIT 1000",
+        "SELECT date, status FROM context.habit_logs WHERE habit_id = %s AND status IN ('done', 'skipped') ORDER BY date DESC LIMIT 1000",
         (habit_id,),
     ).fetchall()
     conn.close()
@@ -381,8 +372,7 @@ def habit_streak(habit_id):
 def habit_longest_streak(habit_id):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT date FROM habit_logs "
-        "WHERE habit_id = ? AND status = 'done' ORDER BY date",
+        "SELECT date FROM context.habit_logs WHERE habit_id = %s AND status = 'done' ORDER BY date",
         (habit_id,),
     ).fetchall()
     conn.close()
@@ -432,7 +422,7 @@ def get_habit(name_or_id):
 def list_habits():
     conn = get_conn()
     rows = conn.execute(
-        "SELECT * FROM habits WHERE archived = 0 ORDER BY created_at, name COLLATE NOCASE"
+        'SELECT * FROM context.habits WHERE archived = 0 ORDER BY created_at, lower(name)'
     ).fetchall()
 
     habits = []
@@ -461,7 +451,7 @@ def list_habits():
 
 def _table_exists(conn, table):
     row = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        "SELECT 1 FROM information_schema.tables WHERE table_schema = 'context' AND table_name = %s",
         (table,),
     ).fetchone()
     return bool(row)
@@ -469,13 +459,16 @@ def _table_exists(conn, table):
 
 def _table_columns(conn, table):
     try:
-        return {row["name"].lower() for row in conn.execute(f"PRAGMA table_info({table})")}
+        return {row["name"].lower() for row in conn.execute(
+            "SELECT column_name AS name FROM information_schema.columns "
+            "WHERE table_schema = 'context' AND table_name = %s", (table,)
+        )}
     except Exception:
         return set()
 
 
 def _find_habit_row(conn, names):
-    rows = conn.execute("SELECT * FROM habits WHERE archived = 0").fetchall()
+    rows = conn.execute('SELECT * FROM context.habits WHERE archived = 0').fetchall()
     wanted = {_normalize_name(name) for name in names}
     for row in rows:
         if _normalize_name(row["name"]) in wanted:
@@ -493,9 +486,7 @@ def _spend_insight(conn):
         return None
 
     logs = conn.execute(
-        "SELECT date, status FROM habit_logs "
-        "WHERE habit_id = ? AND status IN ('done', 'skipped') "
-        "AND date >= ? ORDER BY date",
+        "SELECT date, status FROM context.habit_logs WHERE habit_id = %s AND status IN ('done', 'skipped') AND date >= %s ORDER BY date",
         (habit["id"], (_today() - timedelta(days=89)).isoformat()),
     ).fetchall()
     if len(logs) < 7:
@@ -504,8 +495,7 @@ def _spend_insight(conn):
     start = logs[0]["date"]
     end = logs[-1]["date"]
     spend_rows = conn.execute(
-        "SELECT spent_at, SUM(amount) AS total FROM spends "
-        "WHERE spent_at BETWEEN ? AND ? GROUP BY spent_at",
+        'SELECT spent_at, SUM(amount) AS total FROM context.spends WHERE spent_at BETWEEN %s AND %s GROUP BY spent_at',
         (start, end),
     ).fetchall()
     spends = {row["spent_at"]: float(row["total"] or 0) for row in spend_rows}
@@ -549,9 +539,7 @@ def _sleep_insight(conn):
         return None
 
     logs = conn.execute(
-        "SELECT date, status FROM habit_logs "
-        "WHERE habit_id = ? AND status IN ('done', 'skipped') "
-        "AND date >= ? ORDER BY date",
+        "SELECT date, status FROM context.habit_logs WHERE habit_id = %s AND status IN ('done', 'skipped') AND date >= %s ORDER BY date",
         (habit["id"], (_today() - timedelta(days=89)).isoformat()),
     ).fetchall()
     if len(logs) < 7:
@@ -614,9 +602,7 @@ def _mood_insight(conn):
         return None
 
     logs = conn.execute(
-        "SELECT date, status FROM habit_logs "
-        "WHERE habit_id = ? AND status IN ('done', 'skipped') "
-        "AND date >= ? ORDER BY date",
+        "SELECT date, status FROM context.habit_logs WHERE habit_id = %s AND status IN ('done', 'skipped') AND date >= %s ORDER BY date",
         (habit["id"], (_today() - timedelta(days=89)).isoformat()),
     ).fetchall()
     if len(logs) < 7:

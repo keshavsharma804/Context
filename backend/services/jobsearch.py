@@ -24,7 +24,7 @@ KNOWN_COMPANIES = [
 # ---------- Detection ----------
 def detect_companies_from_files():
     conn = get_conn()
-    rows = conn.execute("SELECT name FROM files").fetchall()
+    rows = conn.execute('SELECT name FROM context.files').fetchall()
     conn.close()
     detected = set()
     for r in rows:
@@ -39,13 +39,7 @@ def detect_companies_from_files():
 def detect_prep_docs(company):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT name, path, last_opened FROM files "
-        "WHERE name LIKE ? AND ("
-        "  name LIKE '%interview%' OR name LIKE '%prep%' OR "
-        "  name LIKE '%handbook%' OR name LIKE '%QA%' OR "
-        "  name LIKE '%questions%' OR name LIKE '%topics%' OR "
-        "  name LIKE '%pending%' OR name LIKE '%scenario%'"
-        ") ORDER BY last_opened DESC",
+        "SELECT name, path, last_opened FROM context.files WHERE name ILIKE %s AND (  name ILIKE '%%interview%%' OR name ILIKE '%%prep%%' OR   name ILIKE '%%handbook%%' OR name ILIKE '%%QA%%' OR   name ILIKE '%%questions%%' OR name ILIKE '%%topics%%' OR   name ILIKE '%%pending%%' OR name ILIKE '%%scenario%%') ORDER BY last_opened DESC",
         (f"%{company}%",),
     ).fetchall()
     conn.close()
@@ -55,8 +49,7 @@ def detect_prep_docs(company):
 def detect_cvs():
     conn = get_conn()
     rows = conn.execute(
-        "SELECT name, path FROM files WHERE category = 'resume' "
-        "ORDER BY downloaded DESC"
+        "SELECT name, path FROM context.files WHERE category = 'resume' ORDER BY downloaded DESC"
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -64,7 +57,7 @@ def detect_cvs():
 
 def detect_application_forms():
     conn = get_conn()
-    rows = conn.execute("SELECT name, path FROM files").fetchall()
+    rows = conn.execute('SELECT name, path FROM context.files').fetchall()
     conn.close()
     out = []
     for r in rows:
@@ -79,21 +72,7 @@ def detect_application_forms():
 def detect_job_portal_visits(days=30):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT url, title, last_visit FROM history WHERE ("
-        "  url LIKE '%linkedin.com/jobs%' OR "
-        "  url LIKE '%naukri%' OR "
-        "  url LIKE '%instahyre%' OR "
-        "  url LIKE '%cutshort%' OR "
-        "  url LIKE '%wellfound%' OR "
-        "  url LIKE '%angel.co%' OR "
-        "  url LIKE '%hirect%' OR "
-        "  url LIKE '%internshala%' OR "
-        "  url LIKE '%unstop%' OR "
-        "  url LIKE '%/careers/%' OR "
-        "  url LIKE '%/careers' OR "
-        "  url LIKE '%/jobs/%'"
-        ") AND url NOT LIKE '%github.com%' "
-        "ORDER BY last_visit DESC LIMIT 50"
+        "SELECT url, title, last_visit FROM context.history WHERE (  url ILIKE '%%linkedin.com/jobs%%' OR   url ILIKE '%%naukri%%' OR   url ILIKE '%%instahyre%%' OR   url ILIKE '%%cutshort%%' OR   url ILIKE '%%wellfound%%' OR   url ILIKE '%%angel.co%%' OR   url ILIKE '%%hirect%%' OR   url ILIKE '%%internshala%%' OR   url ILIKE '%%unstop%%' OR   url ILIKE '%%/careers/%%' OR   url ILIKE '%%/careers' OR   url ILIKE '%%/jobs/%%') AND url NOT ILIKE '%%github.com%%' ORDER BY last_visit DESC LIMIT 50"
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -146,41 +125,37 @@ def apply_oneliner(line):
 
     if parsed["kind"] == "applied":
         conn.execute(
-            "INSERT INTO applications (company, cv_file, applied_at, status, created_at) "
-            "VALUES (?, ?, ?, 'applied', ?)",
+            "INSERT INTO context.applications (company, cv_file, applied_at, status, created_at) VALUES (%s, %s, %s, 'applied', %s)",
             (parsed["company"], parsed["cv_file"], now, now),
         )
         conn.execute(
-            "INSERT OR IGNORE INTO companies (name, source, detected_at) "
-            "VALUES (?, 'manual', ?)", (parsed["company"], now),
+            "INSERT INTO context.companies (name, source, detected_at) VALUES (%s, 'manual', %s) ON CONFLICT DO NOTHING", (parsed["company"], now),
         )
 
     elif parsed["kind"] == "interview":
         conn.execute(
-            "INSERT INTO interviews (company, scheduled_at, created_at) VALUES (?, ?, ?)",
+            'INSERT INTO context.interviews (company, scheduled_at, created_at) VALUES (%s, %s, %s)',
             (parsed["company"], parsed["when"], now),
         )
         conn.execute(
-            "UPDATE applications SET status = 'interview' "
-            "WHERE company = ? AND status = 'applied'", (parsed["company"],),
+            "UPDATE context.applications SET status = 'interview' WHERE company = %s AND status = 'applied'", (parsed["company"],),
         )
 
     elif parsed["kind"] == "rejected":
         conn.execute(
-            "UPDATE applications SET status = 'rejected' WHERE company = ?",
+            "UPDATE context.applications SET status = 'rejected' WHERE company = %s",
             (parsed["company"],),
         )
 
     elif parsed["kind"] == "offered":
         conn.execute(
-            "UPDATE applications SET status = 'offered' WHERE company = ?",
+            "UPDATE context.applications SET status = 'offered' WHERE company = %s",
             (parsed["company"],),
         )
 
     elif parsed["kind"] == "followup":
         conn.execute(
-            "UPDATE applications SET notes = COALESCE(notes,'') || "
-            "' [followed up ' || ? || ']' WHERE company = ?",
+            "UPDATE context.applications SET notes = COALESCE(notes,'') || ' [followed up ' || %s || ']' WHERE company = %s",
             (now[:10], parsed["company"]),
         )
 
@@ -191,11 +166,10 @@ def apply_oneliner(line):
 def job_search_brief():
     conn = get_conn()
     apps = conn.execute(
-        "SELECT id, company, role, cv_file, applied_at, status, notes, url, jd "
-        "FROM applications ORDER BY applied_at DESC"
+        'SELECT id, company, role, cv_file, applied_at, status, notes, url, jd FROM context.applications ORDER BY applied_at DESC'
     ).fetchall()
     interviews = conn.execute(
-        "SELECT company, scheduled_at, prep_docs FROM interviews ORDER BY scheduled_at"
+        'SELECT company, scheduled_at, prep_docs FROM context.interviews ORDER BY scheduled_at'
     ).fetchall()
     conn.close()
 

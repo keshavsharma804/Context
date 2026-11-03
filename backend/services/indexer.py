@@ -38,13 +38,17 @@ def categorize(name):
 def extract_text(path):
     try:
         if path.lower().endswith(".pdf"):
-            doc = fitz.open(path)
-            return " ".join(p.get_text() for p in doc)[:MAX_PDF_CHARS]
+            with fitz.open(path) as doc:
+                if doc.needs_pass:
+                    print(f"  [skip text] {os.path.basename(path)}: password-protected PDF")
+                    return ""
+                return " ".join(p.get_text() for p in doc)[:MAX_PDF_CHARS]
         if path.lower().endswith((".docx", ".doc")):
             d = DocxDocument(path)
             return " ".join(p.text for p in d.paragraphs)[:MAX_PDF_CHARS]
         if path.lower().endswith((".txt", ".md", ".py", ".js", ".ts", ".html", ".css", ".json")):
-            return open(path, errors="ignore").read()[:MAX_PDF_CHARS]
+            with open(path, errors="ignore") as source:
+                return source.read(MAX_PDF_CHARS)
     except Exception as e:
         print(f"  [extract fail] {os.path.basename(path)}: {e}")
     return ""
@@ -72,10 +76,9 @@ def index_file(path):
     last_opened = datetime.fromtimestamp(stat.st_atime).isoformat(timespec="seconds")
 
     conn = get_conn()
-    conn.execute("DELETE FROM files WHERE path = ?", (path,))
+    conn.execute('DELETE FROM context.files WHERE path = %s', (path,))
     conn.execute(
-        "INSERT INTO files (path, name, category, content, downloaded, last_opened, size_kb) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        'INSERT INTO context.files (path, name, category, content, downloaded, last_opened, size_kb) VALUES (%s, %s, %s, %s, %s, %s, %s)',
         (path, name, cat, content, downloaded, last_opened, int(stat.st_size / 1024)),
     )
     conn.commit()
@@ -83,12 +86,14 @@ def index_file(path):
 
 
 # ---------- Index a folder ----------
-def index_folder(folder):
+def index_folder(folder, stop_event=None):
     if not os.path.isdir(folder):
         print(f"  (skip — not found: {folder})")
         return 0
     count = 0
     for f in os.listdir(folder):
+        if stop_event is not None and stop_event.is_set():
+            break
         full = os.path.join(folder, f)
         if os.path.isfile(full):
             index_file(full)
@@ -117,7 +122,7 @@ def chrome_history_path():
 
 
 # ---------- Index Chrome history ----------
-def index_chrome_history():
+def index_chrome_history(stop_event=None):
     profiles = chrome_profiles()
     if not profiles:
         print("  (skip — no Chrome profiles found)")
@@ -131,10 +136,12 @@ def index_chrome_history():
     tmp_dir = os.environ.get("TEMP", "/tmp") if os.name == "nt" else "/tmp"
 
     conn = get_conn()
-    conn.execute("DELETE FROM history")
+    conn.execute('DELETE FROM context.history')
     total = 0
 
     for profile_name, hist_path in profiles:
+        if stop_event is not None and stop_event.is_set():
+            break
         safe_name = profile_name.replace(" ", "_")
         tmp = os.path.join(tmp_dir, f"context_history_{safe_name}")
         try:
@@ -155,19 +162,24 @@ def index_chrome_history():
             continue
 
         for url, title, visits, lvt in rows:
+            if stop_event is not None and stop_event.is_set():
+                break
             try:
                 ts = datetime(1970, 1, 1) + timedelta(microseconds=lvt - CHROME_EPOCH_OFFSET)
                 ts_iso = ts.isoformat(timespec="seconds")
             except Exception:
                 ts_iso = ""
             conn.execute(
-                "INSERT INTO history (url, title, content, last_visit, visits) "
-                "VALUES (?, ?, ?, ?, ?)",
+                'INSERT INTO context.history (url, title, content, last_visit, visits) VALUES (%s, %s, %s, %s, %s)',
                 (url, title or "", "", ts_iso, visits or 0),
             )
         print(f"  {profile_name}: {len(rows)} rows")
         total += len(rows)
 
+    if stop_event is not None and stop_event.is_set():
+        conn.rollback()
+        conn.close()
+        return 0
     conn.commit()
     conn.close()
     print(f"  indexed {total} history rows total (last {HISTORY_DAYS} days, {len(profiles)} profiles)")
@@ -175,11 +187,15 @@ def index_chrome_history():
 
 
 # ---------- Full run ----------
-def run():
+def run(stop_event=None):
     print("Indexing Downloads...")
-    index_folder(DOWNLOADS)
+    index_folder(DOWNLOADS, stop_event=stop_event)
+    if stop_event is not None and stop_event.is_set():
+        return
     print("Indexing Documents...")
-    index_folder(DOCUMENTS)
+    index_folder(DOCUMENTS, stop_event=stop_event)
+    if stop_event is not None and stop_event.is_set():
+        return
     print("Indexing Chrome history...")
-    index_chrome_history()
+    index_chrome_history(stop_event=stop_event)
     print("Done.")

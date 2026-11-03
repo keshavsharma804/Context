@@ -10,19 +10,19 @@ export function SlideLocalVault() {
   const steps = [
     {
       title: 'Write',
-      desc: 'You write. It is saved on this machine instantly. Context works 100% offline.',
+      desc: 'Your entries are saved through the backend to Supabase. A network connection is required.',
     },
     {
       title: 'Seal',
-      desc: 'Private notes and records are sealed with AES-256 hardware encryption.',
+      desc: 'Vault records are encrypted in your browser before they are stored.',
     },
     {
-      title: 'Local',
-      desc: 'High-speed SQLite database right on your SSD. Zero telemetry leaves your device.',
+      title: 'Store',
+      desc: 'Supabase PostgreSQL stores your app records and encrypted vault items.',
     },
     {
       title: 'Freedom',
-      desc: 'Your data is yours forever. Export raw SQLite or JSON anytime in one click.',
+      desc: 'Export your indexed records as JSON from Settings.',
     },
   ]
 
@@ -59,7 +59,7 @@ export function SlideLocalVault() {
           >
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-semibold text-white">This device</span>
-              <span className="font-mono text-[9px] text-emerald-400">works offline</span>
+              <span className="font-mono text-[9px] text-emerald-400">browser encryption</span>
             </div>
             <div className="space-y-1.5 font-mono text-[10px]">
               <div className="flex items-center justify-between rounded bg-white/5 px-2 py-1 text-emerald-300">
@@ -92,7 +92,7 @@ export function SlideLocalVault() {
             </div>
           </div>
 
-          {/* Node 2: SQLite Storage & Vault */}
+          {/* Node 2: Supabase Storage & Vault */}
           <div
             className={`col-span-5 rounded-xl border p-3 transition-all duration-300 ${
               activeStep === 2 || activeStep === 3
@@ -101,23 +101,23 @@ export function SlideLocalVault() {
             }`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-semibold text-white">Local Silicon</span>
+              <span className="text-[11px] font-semibold text-white">Supabase Storage</span>
               <span className="font-mono text-[9px] text-orange-400">AES-256</span>
             </div>
             <div className="space-y-1.5 font-mono text-[10px]">
               <div className="rounded border border-dashed border-white/10 bg-white/5 p-1.5">
                 <div className="flex items-center gap-1.5 text-stone-300 font-semibold text-[9px]">
                   <Database className="h-2.5 w-2.5 text-emerald-400" />
-                  <span>SQLite Database</span>
+                  <span>PostgreSQL Database</span>
                 </div>
-                <div className="text-[9px] text-stone-500 mt-0.5">instant disk read/write</div>
+                <div className="text-[9px] text-stone-500 mt-0.5">pooled database connections</div>
               </div>
               <div className="rounded border border-dashed border-white/10 bg-white/5 p-1.5">
                 <div className="flex items-center gap-1.5 text-orange-300 font-semibold text-[9px]">
                   <ShieldCheck className="h-2.5 w-2.5 text-orange-400" />
                   <span>Vault Storage</span>
                 </div>
-                <div className="text-[9px] text-stone-500 mt-0.5">hardware-sealed records</div>
+                <div className="text-[9px] text-stone-500 mt-0.5">client-encrypted records</div>
               </div>
             </div>
           </div>

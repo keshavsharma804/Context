@@ -56,12 +56,7 @@ def add_debt(
 
     conn = get_conn()
     cur = conn.execute(
-        """
-        INSERT INTO debts (
-            person, direction, amount, description, due_date,
-            taken_at, settled, settled_at, notes, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)
-        """,
+        '\n        INSERT INTO context.debts (\n            person, direction, amount, description, due_date,\n            taken_at, settled, settled_at, notes, created_at\n        ) VALUES (%s, %s, %s, %s, %s, %s, 0, NULL, %s, %s) RETURNING id',
         (
             clean_name,
             clean_dir,
@@ -74,7 +69,7 @@ def add_debt(
         ),
     )
     conn.commit()
-    debt_id = cur.lastrowid
+    debt_id = cur.fetchone()[0]
     conn.close()
 
     return get_debt(debt_id)
@@ -122,12 +117,7 @@ def update_debt(
 
     conn = get_conn()
     conn.execute(
-        """
-        UPDATE debts
-        SET person = ?, direction = ?, amount = ?, description = ?,
-            due_date = ?, taken_at = ?, settled = ?, settled_at = ?, notes = ?
-        WHERE id = ?
-        """,
+        '\n        UPDATE context.debts\n        SET person = %s, direction = %s, amount = %s, description = %s,\n            due_date = %s, taken_at = %s, settled = %s, settled_at = %s, notes = %s\n        WHERE id = %s\n        ',
         (
             new_name,
             new_dir,
@@ -153,7 +143,7 @@ def settle_debt(debt_id: int, settled: bool = True) -> Optional[dict]:
 
 def delete_debt(debt_id: int) -> bool:
     conn = get_conn()
-    cur = conn.execute("DELETE FROM debts WHERE id = ?", (debt_id,))
+    cur = conn.execute('DELETE FROM context.debts WHERE id = %s', (debt_id,))
     conn.commit()
     deleted = cur.rowcount > 0
     conn.close()
@@ -162,7 +152,7 @@ def delete_debt(debt_id: int) -> bool:
 
 def get_debt(debt_id: int) -> Optional[dict]:
     conn = get_conn()
-    row = conn.execute("SELECT * FROM debts WHERE id = ?", (debt_id,)).fetchone()
+    row = conn.execute('SELECT * FROM context.debts WHERE id = %s', (debt_id,)).fetchone()
     conn.close()
     if not row:
         return None
@@ -192,17 +182,17 @@ def list_debts(
     person: Optional[str] = None,
 ) -> list[dict]:
     conn = get_conn()
-    query = "SELECT * FROM debts WHERE 1=1"
+    query = 'SELECT * FROM context.debts WHERE 1=1'
     params = []
 
     if settled is not None:
-        query += " AND settled = ?"
+        query += ' AND settled = %s'
         params.append(1 if settled else 0)
     if direction:
-        query += " AND direction = ?"
+        query += ' AND direction = %s'
         params.append(direction.lower())
     if person:
-        query += " AND person LIKE ?"
+        query += ' AND person ILIKE %s'
         params.append(f"%{person}%")
 
     query += " ORDER BY settled ASC, due_date ASC, created_at DESC"

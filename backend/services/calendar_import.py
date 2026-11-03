@@ -114,10 +114,9 @@ def index_ics(path, source_name=None):
 
     for ev in parse_ics(path, source_name):
         if ev["uid"]:
-            conn.execute("DELETE FROM events WHERE uid = ?", (ev["uid"],))
+            conn.execute('DELETE FROM context.events WHERE uid = %s', (ev["uid"],))
         conn.execute(
-            "INSERT INTO events (uid, title, start_at, end_at, location, description, "
-            "category, company, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            'INSERT INTO context.events (uid, title, start_at, end_at, location, description, category, company, source, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
             (ev["uid"], ev["title"], ev["start_at"], ev["end_at"], ev["location"],
              ev["description"], ev["category"], ev["company"], ev["source"], now),
         )
@@ -131,7 +130,7 @@ def index_ics(path, source_name=None):
 
 def clear_events():
     conn = get_conn()
-    conn.execute("DELETE FROM events")
+    conn.execute('DELETE FROM context.events')
     conn.commit()
     conn.close()
 
@@ -141,8 +140,7 @@ def clear_events():
 def events_on(date_str):
     conn = get_conn()
     rows = conn.execute(
-        "SELECT id, title, start_at, end_at, category, company, location "
-        "FROM events WHERE substr(start_at, 1, 10) = ? ORDER BY start_at",
+        'SELECT id, title, start_at, end_at, category, company, location FROM context.events WHERE substr(start_at, 1, 10) = %s ORDER BY start_at',
         (date_str,),
     ).fetchall()
     conn.close()
@@ -155,9 +153,7 @@ def upcoming_events(days=7):
     until = (dt.now() + timedelta(days=days)).replace(tzinfo=None).isoformat(timespec="minutes")
     conn = get_conn()
     rows = conn.execute(
-        "SELECT id, title, start_at, end_at, category, company, location "
-        "FROM events WHERE substr(start_at, 1, 16) >= ? AND substr(start_at, 1, 16) <= ? "
-        "ORDER BY start_at",
+        'SELECT id, title, start_at, end_at, category, company, location FROM context.events WHERE substr(start_at, 1, 16) >= %s AND substr(start_at, 1, 16) <= %s ORDER BY start_at',
         (now, until),
     ).fetchall()
     conn.close()
@@ -222,9 +218,7 @@ def events_between(start_date, end_date):
     """All events whose start date falls within an inclusive date range."""
     conn = get_conn()
     rows = conn.execute(
-        "SELECT id, title, start_at, end_at, category, company, location "
-        "FROM events WHERE substr(start_at, 1, 10) BETWEEN ? AND ? "
-        "ORDER BY start_at",
+        'SELECT id, title, start_at, end_at, category, company, location FROM context.events WHERE substr(start_at, 1, 10) BETWEEN %s AND %s ORDER BY start_at',
         (start_date, end_date),
     ).fetchall()
     conn.close()
@@ -267,11 +261,10 @@ def add_event(title, start_at, end_at=None, category="personal", location="", de
             end_at = start_at
     uid = f"manual-{datetime.now().timestamp()}"
     cur = conn.execute(
-        "INSERT INTO events (uid, title, start_at, end_at, location, description, category, company, source, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?)",
+        "INSERT INTO context.events (uid, title, start_at, end_at, location, description, category, company, source, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'manual', %s) RETURNING id",
         (uid, title, start_at, end_at, location or "", description or "", category or "personal", company, now),
     )
-    event_id = cur.lastrowid
+    event_id = cur.fetchone()[0]
     conn.commit()
     conn.close()
     return {"id": event_id, "uid": uid, "title": title, "start_at": start_at, "end_at": end_at, "category": category, "location": location}
@@ -280,7 +273,7 @@ def add_event(title, start_at, end_at=None, category="personal", location="", de
 def delete_event(event_id):
     """Delete a calendar event by ID."""
     conn = get_conn()
-    cur = conn.execute("DELETE FROM events WHERE id = ?", (event_id,))
+    cur = conn.execute('DELETE FROM context.events WHERE id = %s', (event_id,))
     deleted = cur.rowcount > 0
     conn.commit()
     conn.close()

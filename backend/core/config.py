@@ -1,4 +1,11 @@
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+# Load secrets only at runtime; existing process environment takes precedence.
+load_dotenv(BACKEND_DIR / ".env", override=False, interpolate=False)
 
 # --- What to index ---
 DOWNLOADS = os.path.expanduser("~/Downloads")
@@ -18,8 +25,12 @@ def _chrome_user_data():
 CHROME_USER_DATA = _chrome_user_data()
 
 # --- DB + server ---
-DB_PATH = "context.db"
-TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
+DATABASE_URL = next((os.environ[key] for key in (
+    "DATABASE_URL", "SUPABASE_DB_URL", "SUPABASE_DATABASE_URL", "POSTGRES_URL",
+    "POSTGRES_CONNECTION_STRING",
+) if os.environ.get(key)), "")
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
+TEMPLATES_DIR = str(BACKEND_DIR / "templates")
 PORT = 3000
 
 # --- Indexing limits ---

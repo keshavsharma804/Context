@@ -59,6 +59,7 @@ from typing import Optional, Union, List, Any
 
 
 from core.db import get_conn
+from core.passwords import hash_password, verify_password
 
 
 
@@ -427,7 +428,7 @@ def _db_counts():
 
 
 
-    counts = {k: conn.execute(f"SELECT COUNT(*) FROM {k}").fetchone()[0]
+    counts = {k: conn.execute(f'SELECT COUNT(*) FROM context.{k}').fetchone()[0]
 
 
 
@@ -491,11 +492,7 @@ def api_home(q: str = ""):
 
 
 
-                "SELECT name, category, snippet(files, 3, '<b>', '</b>', '…', 20) AS snip, "
-
-
-
-                "path, downloaded FROM files WHERE files MATCH ? LIMIT 25", (q,),
+                "SELECT name, category, ts_headline('simple', coalesce(content, ''), query, 'StartSel=<b>, StopSel=</b>, MaxWords=24, MinWords=8') AS snip, path, downloaded FROM context.files CROSS JOIN websearch_to_tsquery('simple', %s) AS query WHERE files.search_vector @@ query LIMIT 25", (q,),
 
 
 
@@ -507,11 +504,7 @@ def api_home(q: str = ""):
 
 
 
-                "SELECT title, url, snippet(history, 2, '<b>', '</b>', '…', 20) AS snip, "
-
-
-
-                "last_visit FROM history WHERE history MATCH ? LIMIT 15", (q,),
+                "SELECT title, url, ts_headline('simple', coalesce(content, ''), query, 'StartSel=<b>, StopSel=</b>, MaxWords=24, MinWords=8') AS snip, last_visit FROM context.history CROSS JOIN websearch_to_tsquery('simple', %s) AS query WHERE history.search_vector @@ query LIMIT 15", (q,),
 
 
 
@@ -527,11 +520,7 @@ def api_home(q: str = ""):
 
 
 
-                "SELECT name, category, '' AS snip, path, downloaded "
-
-
-
-                "FROM files ORDER BY downloaded DESC LIMIT 25"
+                "SELECT name, category, '' AS snip, path, downloaded FROM context.files ORDER BY downloaded DESC LIMIT 25"
 
 
 
@@ -543,11 +532,7 @@ def api_home(q: str = ""):
 
 
 
-                "SELECT title, url, '' AS snip, last_visit "
-
-
-
-                "FROM history ORDER BY last_visit DESC LIMIT 15"
+                "SELECT title, url, '' AS snip, last_visit FROM context.history ORDER BY last_visit DESC LIMIT 15"
 
 
 
@@ -555,7 +540,7 @@ def api_home(q: str = ""):
 
 
 
-        counts = {k: conn.execute(f"SELECT COUNT(*) FROM {k}").fetchone()[0]
+        counts = {k: conn.execute(f'SELECT COUNT(*) FROM context.{k}').fetchone()[0]
 
 
 
@@ -923,7 +908,7 @@ def api_ignore(body: IgnoreBody):
 
 
 
-            "INSERT OR IGNORE INTO ignored_files (path, ignored_at) VALUES (?, ?)",
+            'INSERT INTO context.ignored_files (path, ignored_at) VALUES (%s, %s) ON CONFLICT DO NOTHING',
 
 
 
@@ -1155,29 +1140,25 @@ def api_calendar(start: str = "", end: str = ""):
 
             conn = get_conn()
             spends_rows = conn.execute(
-                "SELECT id, amount, merchant, category, spent_at, created_at FROM spends "
-                "WHERE spent_at BETWEEN ? AND ? ORDER BY spent_at ASC",
+                'SELECT id, amount, merchant, category, spent_at, created_at FROM context.spends WHERE spent_at BETWEEN %s AND %s ORDER BY spent_at ASC',
                 (start, end),
             ).fetchall()
             brief["spends"] = [dict(r) for r in spends_rows]
             
             debts_rows = conn.execute(
-                "SELECT id, person, direction, amount, taken_at, due_date, settled, notes FROM debts "
-                "WHERE (substr(taken_at, 1, 10) BETWEEN ? AND ?) OR (due_date IS NOT NULL AND substr(due_date, 1, 10) BETWEEN ? AND ?) "
-                "ORDER BY taken_at ASC",
+                'SELECT id, person, direction, amount, taken_at, due_date, settled, notes FROM context.debts WHERE (substr(taken_at, 1, 10) BETWEEN %s AND %s) OR (due_date IS NOT NULL AND substr(due_date, 1, 10) BETWEEN %s AND %s) ORDER BY taken_at ASC',
                 (start, end, start, end),
             ).fetchall()
             brief["debts"] = [dict(r) for r in debts_rows]
 
             job_rows = conn.execute(
-                "SELECT id, company, role, applied_at, status, cv_file, url, jd FROM applications "
-                "WHERE substr(applied_at, 1, 10) BETWEEN ? AND ? ORDER BY applied_at ASC",
+                'SELECT id, company, role, applied_at, status, cv_file, url, jd FROM context.applications WHERE substr(applied_at, 1, 10) BETWEEN %s AND %s ORDER BY applied_at ASC',
                 (start[:10], end[:10]),
             ).fetchall()
             brief["applications"] = [dict(r) for r in job_rows]
 
             interview_rows = conn.execute(
-                "SELECT id, company, scheduled_at, prep_docs FROM interviews WHERE scheduled_at IS NOT NULL",
+                'SELECT id, company, scheduled_at, prep_docs FROM context.interviews WHERE scheduled_at IS NOT NULL',
             ).fetchall()
             brief["interviews"] = [dict(r) for r in interview_rows]
             conn.close()
@@ -1579,7 +1560,7 @@ def api_email(filter: str = "all"):
 
 
 
-            "all": conn.execute("SELECT COUNT(*) FROM emails").fetchone()[0],
+            "all": conn.execute('SELECT COUNT(*) FROM context.emails').fetchone()[0],
 
 
 
@@ -1587,7 +1568,7 @@ def api_email(filter: str = "all"):
 
 
 
-                "SELECT COUNT(*) FROM emails WHERE needs_reply = 1 AND source = 'inbox'"
+                "SELECT COUNT(*) FROM context.emails WHERE needs_reply = 1 AND source = 'inbox'"
 
 
 
@@ -1599,7 +1580,7 @@ def api_email(filter: str = "all"):
 
 
 
-                "SELECT COUNT(*) FROM promises WHERE resolved = 0"
+                'SELECT COUNT(*) FROM context.promises WHERE resolved = 0'
 
 
 
@@ -1611,11 +1592,7 @@ def api_email(filter: str = "all"):
 
 
 
-                "SELECT COUNT(*) FROM emails "
-
-
-
-                "WHERE category IN ('application','interview','offer','rejection')"
+                "SELECT COUNT(*) FROM context.emails WHERE category IN ('application','interview','offer','rejection')"
 
 
 
@@ -1659,11 +1636,7 @@ def api_email(filter: str = "all"):
 
 
 
-                f"SELECT {cols} FROM emails WHERE needs_reply = 1 AND source = 'inbox' "
-
-
-
-                "ORDER BY received_at DESC LIMIT 100"
+                f"SELECT {cols} FROM context.emails WHERE needs_reply = 1 AND source = 'inbox' ORDER BY received_at DESC LIMIT 100"
 
 
 
@@ -1679,15 +1652,7 @@ def api_email(filter: str = "all"):
 
 
 
-                f"SELECT {cols} FROM emails "
-
-
-
-                "WHERE category IN ('application','interview','offer','rejection') "
-
-
-
-                "ORDER BY received_at DESC LIMIT 100"
+                f"SELECT {cols} FROM context.emails WHERE category IN ('application','interview','offer','rejection') ORDER BY received_at DESC LIMIT 100"
 
 
 
@@ -1711,7 +1676,7 @@ def api_email(filter: str = "all"):
 
 
 
-                f"SELECT {cols} FROM emails ORDER BY received_at DESC LIMIT 100"
+                f'SELECT {cols} FROM context.emails ORDER BY received_at DESC LIMIT 100'
 
 
 
@@ -1727,11 +1692,7 @@ def api_email(filter: str = "all"):
 
 
 
-            "SELECT id, who, what, by_when, created_at FROM promises "
-
-
-
-            "WHERE resolved = 0 ORDER BY created_at DESC LIMIT 50"
+            'SELECT id, who, what, by_when, created_at FROM context.promises WHERE resolved = 0 ORDER BY created_at DESC LIMIT 50'
 
 
 
@@ -2784,7 +2745,7 @@ def api_vault_verifier(body: VaultVerifierBody):
     try:
         conn = get_conn()
         conn.execute(
-            "UPDATE vault_config SET verifier_ciphertext = ?, verifier_iv = ? WHERE id = 1",
+            'UPDATE context.vault_config SET verifier_ciphertext = %s, verifier_iv = %s WHERE id = 1',
             (body.verifier_ciphertext, body.verifier_iv),
         )
         conn.commit()
@@ -4395,23 +4356,7 @@ def api_people():
 
 
 
-            "SELECT p.id, p.name, p.birthday, p.last_contacted, p.tags, p.source, "
-
-
-
-            "p.created_at, "
-
-
-
-            "(SELECT COUNT(*) FROM person_facts pf "
-
-
-
-            " WHERE pf.person_id = p.id AND pf.resolved = 0) AS fact_count "
-
-
-
-            "FROM people p ORDER BY p.name COLLATE NOCASE"
+            'SELECT p.id, p.name, p.birthday, p.last_contacted, p.tags, p.source, p.created_at, (SELECT COUNT(*) FROM context.person_facts pf  WHERE pf.person_id = p.id AND pf.resolved = 0) AS fact_count FROM context.people p ORDER BY lower(p.name)'
 
 
 
@@ -4681,8 +4626,7 @@ def api_jobs_add(body: JobAddBody):
 
 
 
-            "INSERT INTO applications (company, role, cv_file, applied_at, status, url, jd, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            'INSERT INTO context.applications (company, role, cv_file, applied_at, status, url, jd, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
             (company, (body.role or "").strip() or None,
              (body.cv_file or "").strip() or None, now,
              (body.status or "applied").strip().lower(),
@@ -4691,8 +4635,8 @@ def api_jobs_add(body: JobAddBody):
         )
 
         if body.interview_at:
-            conn.execute("DELETE FROM interviews WHERE company = ?", (company,))
-            conn.execute("INSERT INTO interviews (company, scheduled_at, created_at) VALUES (?, ?, ?)", (company, body.interview_at, now))
+            conn.execute('DELETE FROM context.interviews WHERE company = %s', (company,))
+            conn.execute('INSERT INTO context.interviews (company, scheduled_at, created_at) VALUES (%s, %s, %s)', (company, body.interview_at, now))
             try:
                 from services.calendar_import import add_event
                 desc = f"Job Application: {company}"
@@ -4708,11 +4652,7 @@ def api_jobs_add(body: JobAddBody):
 
 
 
-            "INSERT OR IGNORE INTO companies (name, source, detected_at) "
-
-
-
-            "VALUES (?, 'manual', ?)", (company, now),
+            "INSERT INTO context.companies (name, source, detected_at) VALUES (%s, 'manual', %s) ON CONFLICT DO NOTHING", (company, now),
 
 
 
@@ -4757,9 +4697,9 @@ def api_jobs_update_status(body: JobUpdateStatusBody):
         return err(f"Invalid status: {body.status}")
     conn = get_conn()
     if body.id:
-        conn.execute("UPDATE applications SET status = ? WHERE id = ?", (st, body.id))
+        conn.execute('UPDATE context.applications SET status = %s WHERE id = %s', (st, body.id))
     else:
-        conn.execute("UPDATE applications SET status = ? WHERE company = ?", (st, body.company.strip()))
+        conn.execute('UPDATE context.applications SET status = %s WHERE company = %s', (st, body.company.strip()))
     conn.commit()
     conn.close()
     return ok(message=f"Status updated to {st}")
@@ -4770,9 +4710,9 @@ def api_jobs_schedule_interview(body: JobScheduleInterviewBody):
     company = body.company.strip().title()
     conn = get_conn()
     now = datetime.now().isoformat(timespec="seconds")
-    conn.execute("UPDATE applications SET status = 'interview' WHERE company = ?", (company,))
-    conn.execute("DELETE FROM interviews WHERE company = ?", (company,))
-    conn.execute("INSERT INTO interviews (company, scheduled_at, created_at) VALUES (?, ?, ?)",
+    conn.execute("UPDATE context.applications SET status = 'interview' WHERE company = %s", (company,))
+    conn.execute('DELETE FROM context.interviews WHERE company = %s', (company,))
+    conn.execute('INSERT INTO context.interviews (company, scheduled_at, created_at) VALUES (%s, %s, %s)',
                  (company, body.scheduled_at, now))
     conn.commit()
     conn.close()
@@ -4794,9 +4734,9 @@ def api_jobs_schedule_interview(body: JobScheduleInterviewBody):
 def api_jobs_delete(body: JobDeleteBody):
     conn = get_conn()
     if body.id:
-        conn.execute("DELETE FROM applications WHERE id = ?", (body.id,))
+        conn.execute('DELETE FROM context.applications WHERE id = %s', (body.id,))
     else:
-        conn.execute("DELETE FROM applications WHERE company = ?", (body.company.strip(),))
+        conn.execute('DELETE FROM context.applications WHERE company = %s', (body.company.strip(),))
     conn.commit()
     conn.close()
     return ok(message="Application deleted")
@@ -4834,23 +4774,23 @@ def api_onboarding_summary():
 
 
 
-        email_count = conn.execute("SELECT COUNT(*) FROM emails").fetchone()[0]
+        email_count = conn.execute('SELECT COUNT(*) FROM context.emails').fetchone()[0]
 
 
 
-        people_count = conn.execute("SELECT COUNT(*) FROM people").fetchone()[0]
+        people_count = conn.execute('SELECT COUNT(*) FROM context.people').fetchone()[0]
 
 
 
-        file_count = conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
+        file_count = conn.execute('SELECT COUNT(*) FROM context.files').fetchone()[0]
 
 
 
-        event_count = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+        event_count = conn.execute('SELECT COUNT(*) FROM context.events').fetchone()[0]
 
 
 
-        chunk_count = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+        chunk_count = conn.execute('SELECT COUNT(*) FROM context.chunks').fetchone()[0]
 
 
 
@@ -4982,11 +4922,7 @@ def api_search(q: str = ""):
 
 
 
-            "SELECT name, category, snippet(files, 3, '<b>', '</b>', '…', 20) AS snip, "
-
-
-
-            "path, downloaded FROM files WHERE files MATCH ? LIMIT 25", (q,),
+            "SELECT name, category, ts_headline('simple', coalesce(content, ''), query, 'StartSel=<b>, StopSel=</b>, MaxWords=24, MinWords=8') AS snip, path, downloaded FROM context.files CROSS JOIN websearch_to_tsquery('simple', %s) AS query WHERE files.search_vector @@ query LIMIT 25", (q,),
 
 
 
@@ -4998,11 +4934,7 @@ def api_search(q: str = ""):
 
 
 
-            "SELECT title, url, snippet(history, 2, '<b>', '</b>', '…', 20) AS snip, "
-
-
-
-            "last_visit FROM history WHERE history MATCH ? LIMIT 15", (q,),
+            "SELECT title, url, ts_headline('simple', coalesce(content, ''), query, 'StartSel=<b>, StopSel=</b>, MaxWords=24, MinWords=8') AS snip, last_visit FROM context.history CROSS JOIN websearch_to_tsquery('simple', %s) AS query WHERE history.search_vector @@ query LIMIT 15", (q,),
 
 
 
@@ -5111,217 +5043,33 @@ FILE_CATEGORY_MAP = {
 
 
 def api_files(q: str = "", category: str = "all", limit: int = 120):
-
-
-
     try:
-
-
-
         limit = max(1, min(int(limit), 300))
-
-
-
-        conn = get_conn()
-
-
-
-        where = []
-
-
-
-        params = []
-
-
-
-        if category and category != "all":
-
-
-
-            mapped = FILE_CATEGORY_MAP.get(category.lower(), category.lower())
-
-
-
-            where.append("category = ?")
-
-
-
-            params.append(mapped)
-
-
-
+        where, params = [], []
+        cols = "name, category, path, downloaded, size_kb, left(coalesce(content, ''), 200) AS snip"
+        source = "context.files"
         if q.strip():
-
-
-
-            where.append("files MATCH ?")
-
-
-
-            fts_query = '"' + q.strip().replace('"', "") + '"*'
-
-
-
-            params.append(fts_query)
-
-
-
-
-
-
-
-        base_cols = ("name, category, path, downloaded, size_kb, "
-
-
-
-                     "snippet(files, 3, '<b>', '</b>', '…', 24) AS snip")
-
-
-
-        sql = f"SELECT {base_cols} FROM files"
-
-
-
+            # websearch_to_tsquery accepts arbitrary punctuation without FTS syntax errors.
+            source += " CROSS JOIN to_tsquery('simple', nullif(plainto_tsquery('simple', %s)::text, '') || ':*') AS query"
+            params.append(q.strip())
+            where.append("search_vector @@ query")
+            cols = "name, category, path, downloaded, size_kb, ts_headline('simple', coalesce(content, ''), query, 'StartSel=<b>, StopSel=</b>, MaxWords=24, MinWords=8') AS snip"
+        if category and category != "all":
+            where.append("category = %s")
+            params.append(FILE_CATEGORY_MAP.get(category.lower(), category.lower()))
+        sql = f"SELECT {cols} FROM {source}"
         if where:
-
-
-
             sql += " WHERE " + " AND ".join(where)
-
-
-
-        sql += " ORDER BY downloaded DESC LIMIT ?"
-
-
-
-
-
-
-
-        try:
-
-
-
+        sql += " ORDER BY downloaded DESC LIMIT %s"
+        with get_conn() as conn:
             rows = conn.execute(sql, (*params, limit)).fetchall()
-
-
-
-        except Exception:
-
-
-
-            # FTS syntax can reject punctuation — fall back to a LIKE scan.
-
-
-
-            like = f"%{q.strip()}%"
-
-
-
-            fallback = "SELECT name, category, path, downloaded, size_kb, '' AS snip FROM files"
-
-
-
-            fparams = []
-
-
-
-            if category and category != "all":
-
-
-
-                fallback += " WHERE category = ?"
-
-
-
-                fparams.append(FILE_CATEGORY_MAP.get(category.lower(), category.lower()))
-
-
-
-                fallback += " AND (name LIKE ? OR path LIKE ?)"
-
-
-
-                fparams.extend([like, like])
-
-
-
-            elif q.strip():
-
-
-
-                fallback += " WHERE (name LIKE ? OR path LIKE ?)"
-
-
-
-                fparams.extend([like, like])
-
-
-
-            fallback += " ORDER BY downloaded DESC LIMIT ?"
-
-
-
-            rows = conn.execute(fallback, (*fparams, limit)).fetchall()
-
-
-
-
-
-
-
-        category_rows = conn.execute(
-
-
-
-            "SELECT category, COUNT(*) AS count FROM files GROUP BY category ORDER BY count DESC"
-
-
-
-        ).fetchall()
-
-
-
-        total = conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
-
-
-
-        conn.close()
-
-
-
-        return ok(
-
-
-
-            q=q,
-
-
-
-            category=category,
-
-
-
-            total=total,
-
-
-
-            categories=[dict(r) for r in category_rows],
-
-
-
-            files=[dict(r) for r in rows],
-
-
-
-        )
-
-
-
+            category_rows = conn.execute(
+                "SELECT category, COUNT(*) AS count FROM context.files GROUP BY category ORDER BY count DESC"
+            ).fetchall()
+            total = conn.execute("SELECT COUNT(*) FROM context.files").fetchone()[0]
+        return ok(q=q, category=category, total=total,
+                  categories=[dict(r) for r in category_rows], files=[dict(r) for r in rows])
     except Exception as e:
-
-
-
         return err(str(e), 500)
 
 
@@ -5430,11 +5178,11 @@ EXPORT_TABLES = [
 
 
 
-    "files", "history", "emails", "promises", "events", "people",
+    "files", "history", "emails", "promises", "events", "person_facts",
 
 
 
-    "person_facts", "spends", "budgets", "applications", "interviews",
+    "people", "spends", "budgets", "applications", "interviews",
 
 
 
@@ -5454,11 +5202,11 @@ CLEAR_TABLES = [
 
 
 
-    "files", "history", "emails", "promises", "events", "people",
+    "files", "history", "emails", "promises", "events", "person_facts",
 
 
 
-    "person_facts", "spends", "budgets", "applications", "interviews",
+    "people", "spends", "budgets", "applications", "interviews",
 
 
 
@@ -5510,7 +5258,7 @@ def api_data_export():
 
 
 
-                rows = conn.execute(f"SELECT * FROM {table}").fetchall()
+                rows = conn.execute(f'SELECT * FROM context.{table}').fetchall()
 
 
 
@@ -5622,11 +5370,11 @@ def api_data_clear(body: ClearBody):
 
 
 
-                cleared[table] = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                cleared[table] = conn.execute(f'SELECT COUNT(*) FROM context.{table}').fetchone()[0]
 
 
 
-                conn.execute(f"DELETE FROM {table}")
+                conn.execute(f'DELETE FROM context.{table}')
 
 
 
@@ -5665,7 +5413,7 @@ def api_data_clear(body: ClearBody):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Authentication & User Accounts (SQLite Persisted)
+# Authentication & User Accounts (Supabase PostgreSQL)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class AuthRegisterBody(BaseModel):
@@ -5683,20 +5431,24 @@ def auth_register(body: AuthRegisterBody):
     email = body.email.strip().lower()
     if not email:
         return err("Email is required")
+    if not body.password:
+        return err("Password is required")
     name = (body.name or "").strip() or email.split("@")[0].capitalize()
     user_id = f"usr_{int(datetime.now().timestamp())}_{email.split('@')[0][:6]}"
     now_str = datetime.now().isoformat()
     
     conn = get_conn()
     try:
-        row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        row = conn.execute('SELECT * FROM context.users WHERE email = %s', (email,)).fetchone()
         if row:
+            if not verify_password(body.password, row["password_hash"]):
+                return err("Invalid email or password", 401)
             conn.execute(
-                "UPDATE users SET last_sign_in_at = ?, name = COALESCE(?, name) WHERE email = ?",
+                'UPDATE context.users SET last_sign_in_at = %s, name = COALESCE(%s, name) WHERE email = %s',
                 (now_str, name, email)
             )
             conn.commit()
-            u = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+            u = conn.execute('SELECT * FROM context.users WHERE email = %s', (email,)).fetchone()
             user_data = {
                 "id": u["id"],
                 "email": u["email"],
@@ -5710,11 +5462,8 @@ def auth_register(body: AuthRegisterBody):
             return ok(user=user_data, message="Account updated and signed in")
 
         conn.execute(
-            """
-            INSERT INTO users (id, email, name, password_hash, avatar, provider, role, created_at, last_sign_in_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (user_id, email, name, body.password, body.avatar, "email", "Owner", now_str, now_str)
+            '\n            INSERT INTO context.users (id, email, name, password_hash, avatar, provider, role, created_at, last_sign_in_at)\n            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)\n            ',
+            (user_id, email, name, hash_password(body.password), body.avatar, "email", "Owner", now_str, now_str)
         )
         conn.commit()
         user_data = {
@@ -5738,27 +5487,28 @@ def auth_login(body: AuthLoginBody):
     email = body.email.strip().lower()
     if not email:
         return err("Email is required")
+    if not body.password:
+        return err("Password is required")
     now_str = datetime.now().isoformat()
     
     conn = get_conn()
     try:
-        row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        row = conn.execute('SELECT * FROM context.users WHERE email = %s', (email,)).fetchone()
         if not row:
             user_id = f"usr_{int(datetime.now().timestamp())}_{email.split('@')[0][:6]}"
             name = email.split("@")[0].capitalize()
             conn.execute(
-                """
-                INSERT INTO users (id, email, name, password_hash, provider, role, created_at, last_sign_in_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (user_id, email, name, body.password, "email", "Owner", now_str, now_str)
+                '\n                INSERT INTO context.users (id, email, name, password_hash, provider, role, created_at, last_sign_in_at)\n                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)\n                ',
+                (user_id, email, name, hash_password(body.password), "email", "Owner", now_str, now_str)
             )
             conn.commit()
-            row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+            row = conn.execute('SELECT * FROM context.users WHERE email = %s', (email,)).fetchone()
         else:
-            conn.execute("UPDATE users SET last_sign_in_at = ? WHERE email = ?", (now_str, email))
+            if not verify_password(body.password, row["password_hash"]):
+                return err("Invalid email or password", 401)
+            conn.execute('UPDATE context.users SET last_sign_in_at = %s WHERE email = %s', (now_str, email))
             conn.commit()
-            row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+            row = conn.execute('SELECT * FROM context.users WHERE email = %s', (email,)).fetchone()
 
         user_data = {
             "id": row["id"],
@@ -5781,9 +5531,9 @@ def auth_me(email: Optional[str] = None):
     conn = get_conn()
     try:
         if email:
-            row = conn.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
+            row = conn.execute('SELECT * FROM context.users WHERE email = %s', (email.strip().lower(),)).fetchone()
         else:
-            row = conn.execute("SELECT * FROM users ORDER BY last_sign_in_at DESC LIMIT 1").fetchone()
+            row = conn.execute('SELECT * FROM context.users ORDER BY last_sign_in_at DESC LIMIT 1').fetchone()
         
         if not row:
             return ok(user=None)

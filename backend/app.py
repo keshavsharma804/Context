@@ -1,5 +1,8 @@
 import os
 import sys
+from contextlib import asynccontextmanager
+import logging
+from threading import Event, Thread
 
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 for d in (backend_dir, os.path.join(backend_dir, "core"), os.path.join(backend_dir, "services"), os.path.join(backend_dir, "routes")):
@@ -12,12 +15,13 @@ from pathlib import PureWindowsPath, PurePosixPath
 from fastapi import FastAPI, Request, Form, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import uvicorn
 
 from core.config import DOWNLOADS, DOCUMENTS, PORT, TEMPLATES_DIR
-from core.db import init_db, get_conn
+from core.db import init_db, get_conn, close_pool
 from services.indexer import run as run_indexer, index_file
 from services.dots import find_forgotten_files, find_connections
 from services.jobsearch import job_search_brief, apply_oneliner
@@ -49,12 +53,76 @@ def to_file_url(path: str) -> str:
     return "file://" + PurePosixPath(path).as_posix()
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app):
+    await run_in_threadpool(init_db)
+    stop_event = Event()
+    worker = None
+    app.state.indexing_status = "disabled"
+    if os.getenv("CONTEXT_BACKGROUND_SERVICES", "1") != "0":
+        worker = Thread(target=run_background_services, args=(app, stop_event), daemon=True,
+                        name="context-indexer")
+        worker.start()
+    try:
+        yield
+    finally:
+        stop_event.set()
+        if worker is not None:
+            # Finish outstanding DB work before returning/closing pooled connections.
+            await run_in_threadpool(worker.join)
+        close_pool()
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Mount the JSON API router
 app.include_router(api_router, prefix="/api")
 
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+
+@app.get("/api/health")
+def health():
+    return {"ok": True, "indexing": app.state.indexing_status}
+
+
+def run_background_services(app, stop_event):
+    """Indexing must never delay the API listener or take down the server."""
+    tracker = None
+    observer = None
+    try:
+        app.state.indexing_status = "running"
+        print("Background indexing started; the API is available during indexing.")
+        run_indexer(stop_event=stop_event)
+        if stop_event.is_set():
+            return
+        with get_conn() as conn:
+            chunk_count = conn.execute('SELECT COUNT(*) FROM context.chunks').fetchone()[0]
+        if chunk_count == 0:
+            from services.rag import index_everything
+            index_everything(stop_event=stop_event)
+        if stop_event.is_set():
+            return
+        detect_patterns()
+        if stop_event.is_set():
+            return
+        tracker = ActivityTracker()
+        tracker.start()
+        observer = start_watchers()
+        app.state.indexing_status = "complete"
+        print("Background indexing complete. File watchers and activity tracking started.")
+        stop_event.wait()
+    except Exception as error:
+        app.state.indexing_status = "failed"
+        # Avoid logging personal record contents or connection details.
+        logging.getLogger(__name__).error("Background indexing failed (%s); API remains available.", type(error).__name__)
+    finally:
+        if observer is not None:
+            observer.stop()
+            observer.join()
+        if tracker is not None:
+            tracker.stop()
+            tracker.join()
 
 
 class NewFileHandler(FileSystemEventHandler):
@@ -79,24 +147,20 @@ def _build_home_context(request, q="", answer="", question="", sources=None, fla
     conn = get_conn()
     if q:
         file_rows = conn.execute(
-            "SELECT name, category, snippet(files, 3, '<b>', '</b>', '\u2026', 20) AS snip, "
-            "path, downloaded FROM files WHERE files MATCH ? LIMIT 25", (q,),
+            "SELECT name, category, ts_headline('simple', coalesce(content, ''), query, 'StartSel=<b>, StopSel=</b>, MaxWords=24, MinWords=8') AS snip, path, downloaded FROM context.files CROSS JOIN websearch_to_tsquery('simple', %s) AS query WHERE files.search_vector @@ query LIMIT 25", (q,),
         ).fetchall()
         hist_rows = conn.execute(
-            "SELECT title, url, snippet(history, 2, '<b>', '</b>', '\u2026', 20) AS snip, "
-            "last_visit FROM history WHERE history MATCH ? LIMIT 15", (q,),
+            "SELECT title, url, ts_headline('simple', coalesce(content, ''), query, 'StartSel=<b>, StopSel=</b>, MaxWords=24, MinWords=8') AS snip, last_visit FROM context.history CROSS JOIN websearch_to_tsquery('simple', %s) AS query WHERE history.search_vector @@ query LIMIT 15", (q,),
         ).fetchall()
     else:
         file_rows = conn.execute(
-            "SELECT name, category, '' AS snip, path, downloaded "
-            "FROM files ORDER BY downloaded DESC LIMIT 25"
+            "SELECT name, category, '' AS snip, path, downloaded FROM context.files ORDER BY downloaded DESC LIMIT 25"
         ).fetchall()
         hist_rows = conn.execute(
-            "SELECT title, url, '' AS snip, last_visit "
-            "FROM history ORDER BY last_visit DESC LIMIT 15"
+            "SELECT title, url, '' AS snip, last_visit FROM context.history ORDER BY last_visit DESC LIMIT 15"
         ).fetchall()
 
-    counts = {k: conn.execute(f"SELECT COUNT(*) FROM {k}").fetchone()[0]
+    counts = {k: conn.execute(f'SELECT COUNT(*) FROM context.{k}').fetchone()[0]
               for k in ["files", "history", "events", "emails", "chunks", "people", "spends"]}
     conn.close()
     file_rows = [{**dict(r), "file_url": to_file_url(r["path"])} for r in file_rows]
@@ -160,7 +224,7 @@ def quick_add(line: str = Form(...)):
 def ignore_file(path: str = Form(...)):
     from datetime import datetime
     conn = get_conn()
-    conn.execute("INSERT OR IGNORE INTO ignored_files (path, ignored_at) VALUES (?, ?)",
+    conn.execute('INSERT INTO context.ignored_files (path, ignored_at) VALUES (%s, %s) ON CONFLICT DO NOTHING',
                  (path, datetime.now().isoformat(timespec="seconds")))
     conn.commit()
     conn.close()
@@ -260,31 +324,4 @@ def person_page(request: Request, name: str):
 
 
 if __name__ == "__main__":
-    init_db()
-    print("First indexing pass...")
-    run_indexer()
-
-    conn = get_conn()
-    chunk_count = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
-    conn.close()
-    if chunk_count == 0:
-        print("Building searchable index (one-time)...")
-        from services.rag import index_everything
-        index_everything()
-
-    print("Detecting patterns...")
-    detect_patterns()
-
-    tracker = ActivityTracker()
-    tracker.start()
-    print("Activity tracker started")
-
-    obs = start_watchers()
-    print(f"\n  Context is running -> http://localhost:{PORT}\n")
-
-    try:
-        uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="warning")
-    finally:
-        tracker.stop_flag = True
-        obs.stop()
-        obs.join()
+    uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="info")

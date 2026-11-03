@@ -24,7 +24,7 @@ VALID_CATEGORIES = {"bank", "card", "id", "password", "upi", "note"}
 def get_config() -> dict | None:
     """Return the vault's configuration dict or None if not initialized."""
     conn = get_conn()
-    row = conn.execute("SELECT * FROM vault_config WHERE id = 1").fetchone()
+    row = conn.execute('SELECT * FROM context.vault_config WHERE id = 1').fetchone()
     conn.close()
     if not row:
         return None
@@ -63,17 +63,14 @@ def init_vault(
         raise ValueError("salt is required")
 
     conn = get_conn()
-    existing = conn.execute("SELECT id FROM vault_config WHERE id = 1").fetchone()
+    existing = conn.execute('SELECT id FROM context.vault_config WHERE id = 1').fetchone()
     if existing:
         conn.close()
         return False
 
     now = datetime.now().isoformat(timespec="seconds")
     conn.execute(
-        "INSERT INTO vault_config ("
-        "id, salt, recovery_salt, encrypted_vek, encrypted_vek_iv, "
-        "recovery_encrypted_vek, recovery_encrypted_vek_iv, verifier_ciphertext, verifier_iv, created_at"
-        ") VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        'INSERT INTO context.vault_config (id, salt, recovery_salt, encrypted_vek, encrypted_vek_iv, recovery_encrypted_vek, recovery_encrypted_vek_iv, verifier_ciphertext, verifier_iv, created_at) VALUES (1, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
         (
             clean_salt,
             recovery_salt,
@@ -101,9 +98,7 @@ def reset_passphrase(
     """Update the master passphrase encryption of the vault key while keeping the recovery key."""
     conn = get_conn()
     conn.execute(
-        "UPDATE vault_config SET "
-        "salt = ?, encrypted_vek = ?, encrypted_vek_iv = ?, verifier_ciphertext = ?, verifier_iv = ? "
-        "WHERE id = 1",
+        'UPDATE context.vault_config SET salt = %s, encrypted_vek = %s, encrypted_vek_iv = %s, verifier_ciphertext = %s, verifier_iv = %s WHERE id = 1',
         (salt, encrypted_vek, encrypted_vek_iv, verifier_ciphertext, verifier_iv),
     )
     conn.commit()
@@ -131,12 +126,11 @@ def add_item(title: str, category: str, ciphertext: str, iv: str) -> dict:
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_conn()
     cur = conn.execute(
-        "INSERT INTO vault_items (title, category, ciphertext, iv, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
+        'INSERT INTO context.vault_items (title, category, ciphertext, iv, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id',
         (clean_title, clean_category, clean_ciphertext, clean_iv, now, now),
     )
     conn.commit()
-    item_id = cur.lastrowid
+    item_id = cur.fetchone()[0]
     conn.close()
 
     return {
@@ -161,7 +155,7 @@ def update_item(
     """
     conn = get_conn()
     existing = conn.execute(
-        "SELECT * FROM vault_items WHERE id = ?", (item_id,)
+        'SELECT * FROM context.vault_items WHERE id = %s', (item_id,)
     ).fetchone()
     if not existing:
         conn.close()
@@ -181,12 +175,11 @@ def update_item(
     now = datetime.now().isoformat(timespec="seconds")
 
     conn.execute(
-        "UPDATE vault_items SET title = ?, category = ?, ciphertext = ?, iv = ?, updated_at = ? "
-        "WHERE id = ?",
+        'UPDATE context.vault_items SET title = %s, category = %s, ciphertext = %s, iv = %s, updated_at = %s WHERE id = %s',
         (next_title, next_cat, next_cipher, next_iv, now, item_id),
     )
     conn.commit()
-    row = conn.execute("SELECT * FROM vault_items WHERE id = ?", (item_id,)).fetchone()
+    row = conn.execute('SELECT * FROM context.vault_items WHERE id = %s', (item_id,)).fetchone()
     conn.close()
     return dict(row) if row else None
 
@@ -194,7 +187,7 @@ def update_item(
 def delete_item(item_id: int) -> bool:
     """Delete a single vault item by id."""
     conn = get_conn()
-    cur = conn.execute("DELETE FROM vault_items WHERE id = ?", (item_id,))
+    cur = conn.execute('DELETE FROM context.vault_items WHERE id = %s', (item_id,))
     conn.commit()
     deleted = cur.rowcount > 0
     conn.close()
@@ -208,8 +201,7 @@ def list_items() -> list[dict]:
     """
     conn = get_conn()
     rows = conn.execute(
-        "SELECT id, title, category, ciphertext, iv, created_at, updated_at "
-        "FROM vault_items ORDER BY created_at DESC, id DESC"
+        'SELECT id, title, category, ciphertext, iv, created_at, updated_at FROM context.vault_items ORDER BY created_at DESC, id DESC'
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -219,8 +211,7 @@ def get_item(item_id: int) -> dict | None:
     """Return a single vault item by id."""
     conn = get_conn()
     row = conn.execute(
-        "SELECT id, title, category, ciphertext, iv, created_at, updated_at "
-        "FROM vault_items WHERE id = ?",
+        'SELECT id, title, category, ciphertext, iv, created_at, updated_at FROM context.vault_items WHERE id = %s',
         (item_id,),
     ).fetchone()
     conn.close()
@@ -230,7 +221,7 @@ def get_item(item_id: int) -> dict | None:
 def delete_all_items() -> int:
     """Delete all items from the vault."""
     conn = get_conn()
-    cur = conn.execute("DELETE FROM vault_items")
+    cur = conn.execute('DELETE FROM context.vault_items')
     conn.commit()
     count = cur.rowcount
     conn.close()
@@ -243,9 +234,9 @@ def wipe_vault() -> int:
     After wipe, the vault returns to the uninitialized setup state.
     """
     conn = get_conn()
-    cur = conn.execute("DELETE FROM vault_items")
+    cur = conn.execute('DELETE FROM context.vault_items')
     deleted_items = cur.rowcount
-    conn.execute("DELETE FROM vault_config")
+    conn.execute('DELETE FROM context.vault_config')
     conn.commit()
     conn.close()
     return deleted_items

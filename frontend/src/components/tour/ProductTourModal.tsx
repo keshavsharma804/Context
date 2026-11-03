@@ -25,10 +25,10 @@ const TOUR_SLIDES = [
   },
   {
     id: 'vault',
-    title: 'Your data lives on\nyour device first.',
+    title: 'Your context, saved\nwith Supabase.',
     description:
-      'Everything is saved here the moment you write it. High-performance SQLite resides directly on your machine. Your personal notes, ID cards, and bank credentials are sealed in an AES-256 vault before anything ever leaves.',
-    highlight: '100% Local Silicon · Zero Telemetry',
+      'Your records are saved in Supabase. Vault items are encrypted on your device before storage, and your vault passphrase stays in your browser.',
+    highlight: 'Supabase Storage · Client-side Vault Encryption',
     component: SlideLocalVault,
   },
   {

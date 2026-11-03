@@ -1925,7 +1925,7 @@ export default function Money() {
         {/* Footer */}
         <p className="pt-6 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground/40 font-mono">
           <RefreshCw className="h-2.5 w-2.5" />
-          Precision Tactile Stream Deck · 3-Column Structured · Local context.db
+          Precision Tactile Stream Deck · 3-Column Structured · Supabase Storage
         </p>
       </div>
     </div>

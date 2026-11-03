@@ -74,10 +74,10 @@ def _save(kind, payload):
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_conn()
     cur = conn.execute(
-        "INSERT INTO manual (kind, payload, created_at) VALUES (?, ?, ?)",
+        'INSERT INTO context.manual (kind, payload, created_at) VALUES (%s, %s, %s) RETURNING id',
         (kind, json.dumps(payload), now),
     )
-    manual_id = cur.lastrowid
+    manual_id = cur.fetchone()[0]
     conn.commit()
     conn.close()
     try:
@@ -197,7 +197,7 @@ def parse_and_store(line):
         target = m.group(1).strip()
         conn = get_conn()
         conn.execute(
-            "INSERT OR IGNORE INTO ignored_files (path, ignored_at) VALUES (?, ?)",
+            'INSERT INTO context.ignored_files (path, ignored_at) VALUES (%s, %s) ON CONFLICT DO NOTHING',
             (target, datetime.now().isoformat(timespec="seconds")),
         )
         conn.commit()

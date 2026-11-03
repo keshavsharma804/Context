@@ -1180,7 +1180,7 @@ function HabitDrawer({
         <div className="shrink-0 border-t border-border/60 px-5 py-3">
           <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground/40">
             <Flame className="h-3 w-3" />
-            Every log is stored locally and refreshes your dashboard.
+            Every log is saved to Supabase and refreshes your dashboard.
           </p>
         </div>
       </motion.aside>

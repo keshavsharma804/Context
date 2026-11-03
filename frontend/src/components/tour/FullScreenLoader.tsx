@@ -10,7 +10,7 @@ interface FullScreenLoaderProps {
 
 export function FullScreenLoader({ onComplete, durationMs = 2000 }: FullScreenLoaderProps) {
   const [progress, setProgress] = useState(0)
-  const [stage, setStage] = useState('Initializing local silicon...')
+  const [stage, setStage] = useState('Initializing Context...')
 
   // Format today's date dynamically (e.g. "3 NOVEMBER")
   const todayFormatted = new Intl.DateTimeFormat('en-US', {
@@ -30,9 +30,9 @@ export function FullScreenLoader({ onComplete, durationMs = 2000 }: FullScreenLo
       setProgress(pct)
 
       if (pct < 35) {
-        setStage('Initializing local silicon...')
+        setStage('Initializing Context...')
       } else if (pct < 70) {
-        setStage('Mounting encrypted SQLite database...')
+        setStage('Connecting to Supabase...')
       } else if (pct < 95) {
         setStage('Synchronizing circadian rhythms...')
       } else {
@@ -136,7 +136,7 @@ export function FullScreenLoader({ onComplete, durationMs = 2000 }: FullScreenLo
       {/* Bottom Corner Seals & Info */}
       <div className="absolute bottom-6 left-6 hidden sm:flex items-center gap-2 font-mono text-[10px] text-stone-500/70">
         <Cpu className="h-3.5 w-3.5 text-stone-600" />
-        <span>LOCAL SILICON · ZERO TELEMETRY</span>
+        <span>SUPABASE STORAGE · CONTEXT OS</span>
       </div>
 
       {/* Bottom Right Traditional Cryptographic Seal (Context Bespoke Seal) */}
