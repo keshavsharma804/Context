@@ -17,6 +17,46 @@ _pool = None
 _pool_lock = Lock()
 
 
+def _connection_failure_reason(error):
+    """Inspect driver details locally; return only an allowlisted, non-secret code."""
+    state = getattr(error, 'sqlstate', None)
+    detail = str(error).lower()
+    if state == '28P01' or 'password authentication failed' in detail:
+        return 'DB_PASSWORD_REJECTED'
+    if 'tenant or user not found' in detail:
+        return 'DB_POOLER_USER_NOT_FOUND'
+    if state == '53300' or any(term in detail for term in ('maxclients', 'max client', 'too many clients', 'remaining connection slots')):
+        return 'DB_CONNECTION_LIMIT'
+    if state == '57P03':
+        return 'DB_NOT_READY'
+    if state == '28000':
+        return 'DB_AUTH_REJECTED'
+    if 'could not translate host name' in detail or 'name or service not known' in detail or 'failed to resolve host' in detail:
+        return 'DB_DNS_FAILED'
+    if 'network is unreachable' in detail or 'no route to host' in detail:
+        return 'DB_NETWORK_UNREACHABLE'
+    if 'connection refused' in detail:
+        return 'DB_CONNECTION_REFUSED'
+    if 'certificate' in detail or 'ssl error' in detail:
+        return 'DB_TLS_FAILED'
+    if 'timeout' in detail or 'timed out' in detail:
+        return 'DB_CONNECTION_TIMEOUT'
+    return 'DB_CONNECTION_FAILED'
+
+
+class _DiagnosedConnection(psycopg.Connection):
+    failure_reason = 'DB_CONNECTION_FAILED'
+
+    @classmethod
+    def connect(cls, *args, **kwargs):
+        try:
+            return super().connect(*args, **kwargs)
+        except Exception as error:
+            cls.failure_reason = _connection_failure_reason(error)
+            logging.getLogger('context.database').error('database_connect_failed reason=%s', cls.failure_reason)
+            raise
+
+
 class DatabaseRow(dict):
     """Keep both named and positional access used by the existing API."""
 
@@ -47,7 +87,7 @@ def _get_pool():
             return _pool
         if not DATABASE_URL:
             raise RuntimeError(
-                "Set DATABASE_URL (or SUPABASE_DB_URL) in backend/.env to the "
+                "Set POSTGRES_URL or DATABASE_URL in the backend environment to the "
                 "PostgreSQL connection URL from Supabase's Connect panel. "
                 "A Supabase API URL/key is not a PostgreSQL connection URL."
             )
@@ -55,15 +95,17 @@ def _get_pool():
             connection_url = _connection_url(DATABASE_URL)
             options = conninfo_to_dict(connection_url)
         except Exception:
-            raise RuntimeError("Invalid PostgreSQL connection URL in backend/.env.") from None
+            raise RuntimeError("Invalid PostgreSQL connection URL in the backend environment.") from None
         local = options.get("host") in ("localhost", "127.0.0.1", "::1")
         sslmode = options.get("sslmode", "require")
         if not local and sslmode not in ("require", "verify-ca", "verify-full"):
             sslmode = "require"
         # Pool diagnostics may contain credentials; callers get a fixed error.
         logging.getLogger("psycopg.pool").setLevel(logging.CRITICAL)
+        _DiagnosedConnection.failure_reason = 'DB_CONNECTION_FAILED'
         pool = ConnectionPool(
             connection_url,
+            connection_class=_DiagnosedConnection,
             min_size=1,
             max_size=max(4, min(DB_POOL_SIZE, 30)),
             timeout=15,
@@ -81,8 +123,9 @@ def _get_pool():
         except Exception:
             pool.close()
             raise RuntimeError(
-                "Cannot connect to Supabase PostgreSQL. Check the connection URL, "
-                "database password, network access, and pooler settings in backend/.env."
+                "Cannot connect to Supabase PostgreSQL. "
+                f"Diagnostic: {_DiagnosedConnection.failure_reason}. "
+                "Check the backend environment's PostgreSQL URL, password, and network access."
             ) from None
         _pool = pool
         return pool
