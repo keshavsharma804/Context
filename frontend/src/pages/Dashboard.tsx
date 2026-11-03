@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   AlertTriangle,
@@ -391,7 +391,8 @@ function BentoQuickNav() {
   )
 }
 
-export default function Dashboard() {
+export default function Dashboard({ preview = false }: { preview?: boolean }) {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const q = searchParams.get('q')?.trim() ?? ''
   const [firstVisit] = useState(() => {
@@ -409,12 +410,14 @@ export default function Dashboard() {
     useQuery({
       queryKey: ['home', q],
       queryFn: () => fetchHome(q),
+      enabled: !preview,
       refetchInterval: 60_000,
     })
 
   const { data: config } = useQuery({
     queryKey: ['config'],
     queryFn: fetchConfig,
+    enabled: !preview,
     refetchInterval: 60_000,
   })
 
@@ -437,7 +440,7 @@ export default function Dashboard() {
 
   if (isLoading && !firstVisit) return <DashboardSkeleton />
 
-  if (isError || (!data && !isLoading)) {
+  if (!preview && (isError || (!data && !isLoading))) {
     return (
       <div className="flex h-full items-center justify-center px-6">
         <div className="flex max-w-md flex-col items-center gap-3 rounded-xl border border-border bg-card p-8 text-center shadow-sm">
@@ -474,7 +477,13 @@ export default function Dashboard() {
   const counts = data?.counts ?? {}
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-6 py-8 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-6 py-8 lg:px-8"
+      onClickCapture={preview ? event => {
+        if ((event.target as HTMLElement).closest('button, input, textarea, select')) {
+          event.preventDefault(); event.stopPropagation(); navigate('/auth');
+        }
+      } : undefined}
+      onSubmitCapture={preview ? event => { event.preventDefault(); event.stopPropagation(); navigate('/auth'); } : undefined}>
       {/* The Chronosphere: Planetary Horizon & Live Atmosphere Hero */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -539,7 +548,7 @@ export default function Dashboard() {
 
           <p className="mt-6 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground/35">
             <PulseDot color="bg-emerald-400" size="w-1 h-1" />
-            Indexed locally
+            {preview ? 'Dashboard preview · Sign in to add your own data' : 'Indexed locally'}
             {dataUpdatedAt
               ? ` · last refreshed ${relativeTime(new Date(dataUpdatedAt).toISOString())}`
               : ''}

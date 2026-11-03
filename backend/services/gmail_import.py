@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from email.header import decode_header
 from email.utils import parsedate_to_datetime, parseaddr
 
-from core.config import GMAIL_CRED_PATH, GMAIL_FETCH_DAYS, GMAIL_MAX_INBOX, GMAIL_MAX_SENT
+from core.config import GMAIL_FETCH_DAYS, GMAIL_MAX_INBOX, GMAIL_MAX_SENT
 from core.db import get_conn
 
 
@@ -26,42 +26,32 @@ def _imap_date(dt):
 
 # ================= Credentials =================
 
+from services.integrations import load_integration, save_integration, delete_integration, integration_label
+
+
 def load_credentials():
-    if not os.path.exists(GMAIL_CRED_PATH):
-        return None
-    try:
-        return json.load(open(GMAIL_CRED_PATH))
-    except Exception:
-        return None
+    return load_integration("gmail")
 
 
 def save_credentials(email_addr, app_password):
-    data = {"email": email_addr, "app_password": app_password}
-    # best-effort chmod 600
-    with open(GMAIL_CRED_PATH, "w") as f:
-        json.dump(data, f)
-    try:
-        os.chmod(GMAIL_CRED_PATH, 0o600)
-    except Exception:
-        pass
+    save_integration("gmail", {"email": email_addr, "app_password": app_password}, email_addr)
 
 
 def delete_credentials():
-    if os.path.exists(GMAIL_CRED_PATH):
-        os.remove(GMAIL_CRED_PATH)
+    delete_integration("gmail")
 
 
 def test_connection(email_addr, app_password):
     """Return (ok, message)."""
     try:
-        mail = imaplib.IMAP4_SSL("imap.gmail.com", 993)
+        mail = imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=20)
         mail.login(email_addr, app_password)
         mail.logout()
         return True, "OK"
     except imaplib.IMAP4.error as e:
-        return False, f"Login failed: {e}"
+        return False, "Gmail sign-in failed. Use your Google app password."
     except Exception as e:
-        return False, f"Connection error: {e}"
+        return False, "Could not connect to Gmail. Try again shortly."
 
 
 # ================= Helpers =================
@@ -227,7 +217,7 @@ def _open_mail():
     if not creds:
         return None, "Not connected"
     try:
-        mail = imaplib.IMAP4_SSL("imap.gmail.com", 993)
+        mail = imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=20)
         mail.login(creds["email"], creds["app_password"])
         return mail, None
     except Exception as e:
@@ -437,7 +427,8 @@ def index_emails(days=None):
 # ================= Brief =================
 
 def gmail_brief():
-    creds = load_credentials()
+    label = integration_label("gmail")
+    creds = {"email": label} if label else None
     if not creds:
         return {"connected": False, "email": None, "unanswered": [],
                 "recent_promises": [], "total_emails": 0, "recent_app_email": []}

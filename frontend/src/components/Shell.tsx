@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
+import TopNavigation from './TopNavigation'
+import { useUIStore } from '@/store/ui'
 
 interface ShellProps {
   children: ReactNode
@@ -8,12 +10,14 @@ interface ShellProps {
 
 export default function Shell({ children }: ShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const navStyle = useUIStore(state => state.navStyle)
 
   return (
     <div className="relative flex h-screen w-screen overflow-hidden bg-transparent">
-      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      {navStyle === 'sidebar' && <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />}
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <Topbar onMenuClick={() => setMobileOpen(true)} />
+        <Topbar onMenuClick={() => setMobileOpen(true)} showMenuButton={navStyle === 'sidebar'} />
+        {navStyle === 'topbar' && <TopNavigation />}
         <main className="relative flex-1 overflow-y-auto bg-transparent">
           {/* ambient violet glow at the top centre of the app area */}
           <div aria-hidden className="ambient-glow" />

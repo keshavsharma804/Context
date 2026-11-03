@@ -6,11 +6,19 @@
 const BASE = '/api'
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers)
+  headers.set('Content-Type', 'application/json')
+  if (init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase())) {
+    const csrf = document.cookie.split('; ').find(part => part.startsWith('context_csrf='))?.split('=')[1]
+    if (csrf) headers.set('X-CSRF-Token', decodeURIComponent(csrf))
+  }
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
     ...init,
+    headers,
+    credentials: 'include',
   })
   const json = await res.json()
+  if (res.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event('context:session-expired'))
   if (!json.ok) throw new Error(json.error ?? 'API error')
   return json as T
 }
@@ -236,7 +244,9 @@ export const deleteCalendarEvent = (id: number) =>
 export async function postCalendarUpload(file: File) {
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch('/api/calendar/upload', { method: 'POST', body: form })
+  const csrf = document.cookie.split('; ').find(part => part.startsWith('context_csrf='))?.split('=')[1]
+  const res = await fetch('/api/calendar/upload', { method: 'POST', body: form, credentials: 'include',
+    headers: csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {} })
   const json = await res.json()
   if (!json.ok) throw new Error(json.error ?? 'Upload failed')
   return json as { ok: boolean; message: string; count: number }
@@ -1133,20 +1143,25 @@ export interface AuthUser {
   lastSignInAt: string
 }
 
-export const postAuthRegister = (email: string, password: string, name?: string) =>
+export const postAuthSignupCode = (email: string) =>
+  apiFetch<{ ok: boolean; message?: string }>('/auth/signup-code', {
+    method: 'POST', body: JSON.stringify({ email }),
+  })
+
+export const postAuthRegister = (email: string, password: string, name: string | undefined, remember: boolean, otp: string) =>
   apiFetch<{ ok: boolean; user: AuthUser; message?: string }>('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, name }),
+    body: JSON.stringify({ email, password, name, remember, otp }),
   })
 
-export const postAuthLogin = (email: string, password: string) =>
+export const postAuthLogin = (email: string, password: string, remember = true) =>
   apiFetch<{ ok: boolean; user: AuthUser; message?: string }>('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, remember }),
   })
 
-export const fetchAuthMe = (email?: string) =>
-  apiFetch<{ ok: boolean; user: AuthUser | null }>(`/auth/me${email ? `?email=${encodeURIComponent(email)}` : ''}`)
+export const fetchAuthMe = () =>
+  apiFetch<{ ok: boolean; user: AuthUser | null }>('/auth/me')
 
 export const postAuthLogout = () =>
   apiFetch<{ ok: boolean; message?: string }>('/auth/logout', {

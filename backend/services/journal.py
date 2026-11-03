@@ -74,7 +74,7 @@ def save_entry(
 
     conn = get_conn()
     conn.execute(
-        '\n        INSERT INTO context.journal (date, mood, headline, content, tags, created_at, updated_at)\n        VALUES (%s, %s, %s, %s, %s, %s, %s)\n        ON CONFLICT(date) DO UPDATE SET\n            mood = excluded.mood,\n            headline = excluded.headline,\n            content = excluded.content,\n            tags = excluded.tags,\n            updated_at = excluded.updated_at\n        ',
+        '\n        INSERT INTO context.journal (date, mood, headline, content, tags, created_at, updated_at)\n        VALUES (%s, %s, %s, %s, %s, %s, %s)\n        ON CONFLICT(user_id,date) DO UPDATE SET\n            mood = excluded.mood,\n            headline = excluded.headline,\n            content = excluded.content,\n            tags = excluded.tags,\n            updated_at = excluded.updated_at\n        ',
         (d, m, clean_h, clean_c, clean_t, now, now),
     )
     conn.commit()

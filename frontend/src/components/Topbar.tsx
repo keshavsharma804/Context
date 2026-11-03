@@ -10,7 +10,6 @@ import {
   Menu,
   Search,
   Settings,
-  ShieldCheck,
   Sparkles,
   Upload,
   Volume2,
@@ -31,14 +30,17 @@ import ThemeToggle from '@/components/ThemeToggle'
 import { isSoundEnabled, toggleSound, useSound } from '@/hooks/useSound'
 import { useProfile } from '@/hooks/useProfile'
 import { initialsFromName, readAvatarFile, setUserAvatar } from '@/lib/profile'
-import { getStreak, streakLabel } from '@/lib/streak'
+import { getStreak } from '@/lib/streak'
 import { celebrateStreak } from '@/lib/celebrate'
+import { useAuthStore } from '@/store/auth'
 
 interface TopbarProps {
   onMenuClick: () => void
+  showMenuButton?: boolean
 }
 
-export default function Topbar({ onMenuClick }: TopbarProps) {
+export default function Topbar({ onMenuClick, showMenuButton = true }: TopbarProps) {
+  const user = useAuthStore(state => state.user)
   const [search, setSearch] = useState('')
   const [focused, setFocused] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -56,7 +58,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
   const celebrated = useRef(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
-  const { data: config } = useQuery({
+  const { data: config, isLoading: configLoading, isError: configError } = useQuery({
     queryKey: ['config'],
     queryFn: fetchConfig,
   })
@@ -153,14 +155,14 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
 
       <div className="flex items-center gap-3">
         {/* Mobile menu trigger */}
-        <button
+        {showMenuButton && <button
           type="button"
           onClick={onMenuClick}
           aria-label="Open navigation"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-surface-2 text-muted-foreground transition hover:bg-surface-3 hover:text-foreground lg:hidden"
         >
           <Menu className="h-4 w-4" />
-        </button>
+        </button>}
 
         {/* Omni-Search Spotlight Capsule */}
         <form onSubmit={handleSearch} className="min-w-0">
@@ -222,49 +224,53 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
       {/* Right Hardware Status & Identity Cluster */}
       <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
         {/* Streak Counter */}
-        <div tabIndex={0}
-          className="flex h-9 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 transition hover:bg-amber-500/15 shadow-sm shadow-amber-500/5"
+        <div tabIndex={0} aria-label={`Daily streak: ${streak.streak} ${streak.streak === 1 ? 'day' : 'days'}`}
+          className="flex h-9 items-center gap-2 rounded-xl border border-amber-500/20 bg-card/80 pl-1 pr-2.5 shadow-sm transition-colors hover:border-amber-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           data-ui-tooltip={
             streak.streak <= 1 && streak.firstEver
               ? 'Your streak starts today. Come back tomorrow!'
               : `${streak.streak}-day streak. Keep going!`
           }
         >
-          <Flame className="h-3.5 w-3.5 text-amber-400 animate-pulse" />
+          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 light:text-amber-700">
+            <Flame className="h-3.5 w-3.5 fill-amber-500/15" strokeWidth={1.8} />
+          </span>
           <motion.span
             key={streak.streak}
             initial={streak.increased ? { scale: 1.45 } : false}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-            className="font-mono text-xs font-bold tabular-nums text-amber-400"
+            className="text-[11px] font-semibold tabular-nums text-foreground/90"
           >
-            {streakLabel(streak.streak, streak.firstEver)}
+            {streak.streak} {streak.streak === 1 ? 'day' : 'days'}
           </motion.span>
         </div>
 
         {/* AI Hardware Chip Indicator (Groq) */}
-        <div tabIndex={0}
+        <button type="button" disabled={configLoading}
+          onClick={() => navigate('/settings?tab=integrations')}
+          aria-label={config?.has_groq ? 'Manage your personal AI connection' : 'Connect your personal AI API key'}
           className={cn(
-            'hidden items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10.5px] transition md:inline-flex shadow-sm',
+            'group hidden h-9 items-center gap-2 rounded-xl border bg-card/80 pl-1 pr-2.5 text-[11px] font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait md:inline-flex',
             config?.has_groq
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-              : 'border-border/60 bg-surface-2/60 text-muted-foreground'
+              ? 'border-emerald-500/20 text-foreground/90 hover:border-emerald-500/40'
+              : 'border-border/80 text-muted-foreground hover:border-primary/30 hover:text-foreground'
           )}
-          data-ui-tooltip={config?.has_groq ? 'Groq Llama-3.3 70B Engine connected' : 'No local LLM connected'}
+          data-ui-tooltip={configError ? 'AI connection status unavailable. Open Integrations to retry.' : config?.has_groq ? 'Your personal AI key is connected. Manage integrations.' : 'Add your own AI API key in Settings > Integrations.'}
         >
           <span
             className={cn(
-              'h-1.5 w-1.5 rounded-full',
+              'relative flex h-6 w-6 items-center justify-center rounded-lg transition-colors',
               config?.has_groq
-                ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse'
-                : 'bg-zinc-600'
+                ? 'bg-emerald-500/10 text-emerald-400 light:text-emerald-700'
+                : 'bg-surface-2 text-muted-foreground group-hover:text-primary'
             )}
-          />
-          <Zap className="h-3 w-3 opacity-70" />
-          <span className="font-semibold">
-            {config?.has_groq ? 'Groq AI' : 'Offline'}
+          >
+            <Zap className="h-3.5 w-3.5" strokeWidth={1.8} />
+            {config?.has_groq && <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 ring-2 ring-card" />}
           </span>
-        </div>
+          <span>{configLoading ? 'Checking AI' : configError ? 'AI unavailable' : config?.has_groq ? 'AI ready' : 'Connect AI'}</span>
+        </button>
 
         {/* Gmail Sync Indicator */}
         {config?.gmail_connected && (
@@ -359,23 +365,28 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-semibold text-foreground">
-                        {name || 'Context Operator'}
+                        {user?.name || 'Welcome to Context'}
                       </p>
                       <p className="truncate font-mono text-[10px] text-muted-foreground/60">
-                        {config?.gmail_email || 'local@context.internal'}
+                        {user?.email || ''}
                       </p>
                     </div>
                   </div>
                   <div className="mt-2.5 flex items-center justify-between rounded-lg bg-surface-2 px-2 py-1 text-[10px] font-mono text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      Session: Secure
+                      {user ? 'Session: Secure' : 'Dashboard preview'}
                     </span>
-                    <span className="text-emerald-400 font-semibold">Supabase Storage</span>
+                    <span className="text-emerald-400 font-semibold">{user ? 'Connected' : 'Guest'}</span>
                   </div>
                 </div>
 
                 <div className="p-1 space-y-0.5">
+                  {!user && <MenuItem icon={LogOut} label="Sign in / Create Account" onClick={() => { setMenuOpen(false); navigate('/auth'); }} />}
+                  {user && <MenuItem icon={LogOut} label="Sign out" onClick={() => {
+                    setMenuOpen(false)
+                    void useAuthStore.getState().logout().catch(() => toast.error('Could not revoke the session. Please retry.'))
+                  }} />}
                   <MenuItem
                     icon={Upload}
                     label={avatar ? 'Change avatar' : 'Upload custom avatar'}

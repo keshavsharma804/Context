@@ -933,7 +933,7 @@ export default function Vault() {
   }, [decryptedItems])
 
   return (
-    <div className="relative min-h-[calc(100vh-3.5rem)] px-4 py-8 sm:px-8 max-w-7xl mx-auto">
+    <div className="relative w-full px-4 py-5 sm:px-8 sm:py-6 max-w-7xl mx-auto">
       <AnimatePresence mode="wait">
         {!unlocked ? (
           <motion.div
@@ -942,7 +942,8 @@ export default function Vault() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
             transition={{ duration: 0.3 }}
-            className="flex min-h-[75vh] flex-col items-center justify-center"
+            className={cn('flex flex-col items-center justify-center',
+              configQuery.data?.exists || configQuery.isLoading ? 'min-h-[calc(100dvh-12rem)]' : 'py-1 sm:py-2')}
           >
             {configQuery.isLoading ? (
               <div className="flex flex-col items-center gap-3">
@@ -953,32 +954,32 @@ export default function Vault() {
               </div>
             ) : !configQuery.data?.exists ? (
               /* --- FIRST TIME SETUP --- */
-              <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-border/80 bg-card p-7 sm:p-9 shadow-2xl">
+              <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-border/80 bg-card p-5 sm:p-6 shadow-xl">
                 <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
                 <div className="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
 
                 <div className="relative text-center">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner mb-4">
-                    <Lock className="h-8 w-8" />
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner mb-3">
+                    <Lock className="h-6 w-6" />
                   </div>
-                  <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                     Create your secure vault
                   </h1>
                   <p className="mt-1 text-[13px] text-muted-foreground leading-relaxed">
-                    Aadhaar, Passports, Bank Accounts, UPI, and Passwords — protected by client-side Web Crypto AES-GCM 256-bit.
+                    IDs, bank details and passwords, encrypted in your browser.
                   </p>
                 </div>
 
-                <div className="mt-5 rounded-2xl border border-amber-500/25 bg-amber-500/[0.08] p-3.5 text-left">
+                <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/[0.08] p-3 text-left">
                   <div className="flex gap-2.5">
                     <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
                     <p className="text-[11.5px] leading-relaxed text-foreground/80">
-                      <strong className="text-amber-500 font-semibold">Zero-Knowledge Security:</strong> Your passphrase never leaves this device. A 16-digit Emergency Recovery Key will also be provided.
+                      <strong className="text-amber-500 font-semibold">Keep your recovery key.</strong> Your passphrase stays on this device. Save the recovery key provided after setup.
                     </p>
                   </div>
                 </div>
 
-                <form onSubmit={handleSetup} className="mt-5 space-y-4">
+                <form onSubmit={handleSetup} className="mt-4 space-y-3">
                   <div>
                     <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-1.5">
                       Master Passphrase
@@ -990,11 +991,13 @@ export default function Vault() {
                         value={passphrase}
                         onChange={(e) => setPassphrase(e.target.value)}
                         placeholder="Choose a strong master passphrase"
+                        autoComplete="new-password"
                         className="w-full rounded-xl border border-border/80 bg-surface-inset px-3.5 py-2.5 pr-10 text-[13px] text-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/15 transition-all"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassphrase(!showPassphrase)}
+                        aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
                         className="absolute right-2.5 top-2.5 text-muted-foreground/60 hover:text-foreground cursor-pointer"
                       >
                         {showPassphrase ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -1026,6 +1029,7 @@ export default function Vault() {
                       value={confirmPassphrase}
                       onChange={(e) => setConfirmPassphrase(e.target.value)}
                       placeholder="Repeat your master passphrase"
+                      autoComplete="new-password"
                       className="w-full rounded-xl border border-border/80 bg-surface-inset px-3.5 py-2.5 text-[13px] text-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/15 transition-all"
                     />
                   </div>

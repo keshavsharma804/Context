@@ -1,20 +1,32 @@
 /** Tailwind v4 + shadcn-compatible design system */
 @import "tailwindcss";
 
+html[data-interface-size="compact"] { font-size: 14px; }
+html[data-interface-size="default"] { font-size: 16px; }
+html[data-interface-size="large"] { font-size: 18px; }
+html[data-interface-size="fit"] { font-size: clamp(13px, calc(10px + 0.42vw), 16px); }
+
+html[data-color-theme="obsidian"] [data-ambient-background] { filter: grayscale(1); }
+
+.nav-spotlight-beam {
+  background: linear-gradient(to bottom, hsl(var(--primary) / 0.32), hsl(var(--primary) / 0.06) 65%, transparent);
+  clip-path: polygon(46% 0, 54% 0, 100% 100%, 0 100%);
+}
+
 /* Light-theme variant: `light:bg-...` */
 @custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
 
 /* ─── Theme tokens ──────────────────────────────────────────────────────────── */
 :root,
 :root[data-theme="dark"] {
-  --background: 240 12% 8.5%;
+  --background: 0 0% 3.9%;
   --foreground: 0 0% 98%;
-  --card: 240 12% 12.8%;
+  --card: 0 0% 9%;
   --card-foreground: 0 0% 98%;
-  --popover: 240 12% 13.8%;
+  --popover: 0 0% 9%;
   --popover-foreground: 0 0% 98%;
-  --primary: 262.1 83.3% 57.8%;
-  --primary-foreground: 210 20% 98%;
+  --primary: 0 0% 93.3%;
+  --primary-foreground: 0 0% 3.9%;
   --secondary: 240 6% 17.5%;
   --secondary-foreground: 0 0% 98%;
   --muted: 240 6% 16.5%;
@@ -29,7 +41,7 @@
   --radius: 0.75rem;
 
   /* surfaces / hairlines (theme-aware, used instead of white/black alphas) */
-  --sidebar: 240 12% 7.8%;
+  --sidebar: 0 0% 3.9%;
   --surface-1: rgba(255, 255, 255, 0.04);
   --surface-2: rgba(255, 255, 255, 0.07);
   --surface-3: rgba(255, 255, 255, 0.10);
@@ -44,7 +56,7 @@
   --card-foreground: 240 10% 7%;
   --popover: 0 0% 100%;
   --popover-foreground: 240 10% 7%;
-  --primary: 262.1 83.3% 57.8%;
+  --primary: 0 0% 9%;
   --primary-foreground: 0 0% 100%;
   --secondary: 240 4.8% 95.9%;
   --secondary-foreground: 240 5.9% 10%;

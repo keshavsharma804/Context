@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { ShieldCheck, Cpu } from 'lucide-react'
 import { ContextLogo, ContextSeal } from '@/components/ui/ContextLogo'
@@ -11,6 +11,12 @@ interface FullScreenLoaderProps {
 export function FullScreenLoader({ onComplete, durationMs = 2000 }: FullScreenLoaderProps) {
   const [progress, setProgress] = useState(0)
   const [stage, setStage] = useState('Initializing Context...')
+  const completed = useRef(false)
+  const finish = () => {
+    if (completed.current) return
+    completed.current = true
+    onComplete()
+  }
 
   // Format today's date dynamically (e.g. "3 NOVEMBER")
   const todayFormatted = new Intl.DateTimeFormat('en-US', {
@@ -23,6 +29,7 @@ export function FullScreenLoader({ onComplete, durationMs = 2000 }: FullScreenLo
   useEffect(() => {
     const startTime = performance.now()
     let frameId: number
+    let completionTimer: ReturnType<typeof setTimeout> | undefined
 
     const tick = (now: number) => {
       const elapsed = now - startTime
@@ -43,19 +50,22 @@ export function FullScreenLoader({ onComplete, durationMs = 2000 }: FullScreenLo
         frameId = requestAnimationFrame(tick)
       } else {
         // Short pause at 100% before transition
-        setTimeout(() => {
-          onComplete()
+        completionTimer = setTimeout(() => {
+          if (!completed.current) {
+            completed.current = true
+            onComplete()
+          }
         }, 220)
       }
     }
 
     frameId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frameId)
+    return () => { cancelAnimationFrame(frameId); clearTimeout(completionTimer) }
   }, [durationMs, onComplete])
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0.98, filter: 'blur(8px)' }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
@@ -152,7 +162,7 @@ export function FullScreenLoader({ onComplete, durationMs = 2000 }: FullScreenLo
       {/* Quick Skip Button */}
       <button
         type="button"
-        onClick={onComplete}
+        onClick={finish}
         className="absolute top-6 right-6 font-mono text-xs text-stone-500 hover:text-stone-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-stone-800/40"
       >
         Skip intro

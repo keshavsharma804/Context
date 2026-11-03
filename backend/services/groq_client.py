@@ -6,57 +6,34 @@ for _d in (_backend_dir, os.path.join(_backend_dir, "core"), os.path.join(_backe
     if _d not in sys.path:
         sys.path.insert(0, _d)
 
-import os, json
 from groq import Groq
-from core.config import GROQ_API_KEY, GROQ_MODEL
-
-_client = None
+from core.config import GROQ_MODEL
+from services.integrations import load_integration, save_integration, delete_integration, integration_label
 
 
 def _load_key():
-    if GROQ_API_KEY:
-        return GROQ_API_KEY
-    path = os.path.expanduser("~/.context_groq.json")
-    if os.path.exists(path):
-        try:
-            return json.load(open(path)).get("api_key")
-        except Exception:
-            return None
-    return None
+    credentials = load_integration("groq")
+    return credentials.get("api_key") if credentials else None
 
 
 def get_client():
-    global _client
-    if _client is None:
-        key = _load_key()
-        if not key:
-            raise RuntimeError("Groq API key not set")
-        _client = Groq(api_key=key)
-    return _client
+    key = _load_key()
+    if not key:
+        raise RuntimeError("Add your personal Groq API key in Settings > Integrations")
+    # Request-local client: never reuse another user's key through a module global.
+    return Groq(api_key=key)
 
 
 def has_key():
-    return bool(_load_key())
+    return integration_label("groq") is not None
 
 
 def save_key(key):
-    path = os.path.expanduser("~/.context_groq.json")
-    with open(path, "w") as f:
-        json.dump({"api_key": key}, f)
-    try:
-        os.chmod(path, 0o600)
-    except Exception:
-        pass
-    global _client
-    _client = None
+    save_integration("groq", {"api_key": key}, "Groq")
 
 
 def delete_key():
-    path = os.path.expanduser("~/.context_groq.json")
-    if os.path.exists(path):
-        os.remove(path)
-    global _client
-    _client = None
+    delete_integration("groq")
 
 
 def test_key(key):
@@ -69,7 +46,7 @@ def test_key(key):
         )
         return True, "OK"
     except Exception as e:
-        return False, str(e)[:200]
+        return False, "Could not verify this API key. Check the key and provider access."
 
 
 def chat(system, user, temperature=0.2, max_tokens=1000):

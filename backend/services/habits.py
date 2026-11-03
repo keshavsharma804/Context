@@ -283,7 +283,7 @@ def log_habit(name_or_id, date_value, status, note=None):
 
     now = datetime.now().isoformat(timespec="seconds")
     conn.execute(
-        'INSERT INTO context.habit_logs (habit_id, date, status, note, created_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT(habit_id, date) DO UPDATE SET status = excluded.status, note = excluded.note',
+        'INSERT INTO context.habit_logs (habit_id, date, status, note, created_at) VALUES (%s, %s, %s, %s, %s) ON CONFLICT(user_id, habit_id, date) DO UPDATE SET status = excluded.status, note = excluded.note',
         (habit_id, day, status, note or "", now),
     )
     conn.commit()

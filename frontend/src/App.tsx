@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, MotionConfig } from "motion/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -31,6 +31,9 @@ import AuthPage from "./pages/AuthPage";
 import { pageTransition } from "./lib/animations";
 import { preloadSounds } from "./hooks/useSound";
 import { useAutoThemeScheduler } from "./hooks/useAutoThemeScheduler";
+import { useAuthStore } from './store/auth';
+import { useUIStore } from './store/ui';
+import { lastSectionKey, safeStartPath } from './lib/start-page';
 
 function AutoThemeWatcher() {
   useAutoThemeScheduler();
@@ -46,6 +49,67 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// The public preview never requests private account data or runs background refetches.
+const previewClient = new QueryClient({ defaultOptions: { queries: { enabled: false } } });
+
+export function GuestWelcome() {
+  const [show, setShow] = useState(() => {
+    try { return localStorage.getItem('context:tour_completed') === 'true'; } catch { return false; }
+  });
+  useEffect(() => {
+    let timer: number | undefined;
+    const finished = () => { timer = window.setTimeout(() => setShow(true), 1200); };
+    window.addEventListener('context:tour-closed', finished);
+    return () => { window.removeEventListener('context:tour-closed', finished); window.clearTimeout(timer); };
+  }, []);
+  if (!show) return null;
+  return <div className="mx-auto w-full max-w-7xl px-6 lg:px-8"><div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-primary/25 bg-card p-5" role="region" aria-label="Welcome to Context">
+    <div className="min-w-0 flex-1"><p className="font-semibold">Make this dashboard yours</p><p className="text-sm text-muted-foreground">Create an account or sign in to save your data and connect your personal AI and Gmail.</p></div>
+    <Link className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" to="/auth?mode=signup">Create Account</Link>
+    <Link className="rounded-xl border border-border px-4 py-2 text-sm" to="/auth">Sign In</Link>
+    <button type="button" className="px-2 py-2 text-sm text-muted-foreground" onClick={() => setShow(false)}>Maybe later</button>
+  </div></div>;
+}
+
+function SessionBoundary() {
+  const initialized = useAuthStore(state => state.initialized);
+  const user = useAuthStore(state => state.user);
+  const opensOn = useUIStore(state => state.opensOn);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const restoredFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user) { restoredFor.current = null; return; }
+    if (location.pathname === '/auth') return;
+    const key = lastSectionKey(user.id);
+    try {
+      if (restoredFor.current !== user.id) {
+        restoredFor.current = user.id;
+        if (location.pathname === '/' && opensOn === 'last') {
+          const target = safeStartPath(localStorage.getItem(key));
+          if (target !== '/') { navigate(target, { replace: true }); return; }
+        }
+      }
+      localStorage.setItem(key, safeStartPath(location.pathname + location.search));
+    } catch { /* Preferences are optional when browser storage is unavailable. */ }
+  }, [user, location.pathname, location.search, opensOn, navigate]);
+
+  if (!initialized) return null;
+  if (location.pathname === '/auth') return <AuthPage />;
+  if (!user) {
+    if (location.pathname !== '/') return <Navigate replace to={`/auth?next=${encodeURIComponent(location.pathname + location.search)}`} />;
+    return <QueryClientProvider client={previewClient}>
+      <Shell key="preview"><GuestWelcome /><Dashboard preview /></Shell>
+    </QueryClientProvider>;
+  }
+  return <>
+    <Shell key={user.id}><AnimatedRoutes /></Shell>
+    <FloatingAsk />
+    <GlobalShortcuts />
+  </>;
+}
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -198,6 +262,23 @@ function GlobalShortcuts() {
 }
 
 export default function App() {
+  const initialized = useAuthStore(state => state.initialized);
+  useEffect(() => {
+    const clear = () => queryClient.clear();
+    const expire = () => { if (useAuthStore.getState().isAuthenticated) useAuthStore.getState().expire(); };
+    const syncTabs = (event: StorageEvent) => {
+      if (event.key === 'context:auth-revision') void useAuthStore.getState().initialize(true);
+    };
+    window.addEventListener('context:auth-changing', clear);
+    window.addEventListener('context:session-expired', expire);
+    window.addEventListener('storage', syncTabs);
+    void useAuthStore.getState().initialize();
+    return () => {
+      window.removeEventListener('context:auth-changing', clear);
+      window.removeEventListener('context:session-expired', expire);
+      window.removeEventListener('storage', syncTabs);
+    };
+  }, []);
   useEffect(() => {
     const timer = window.setTimeout(() => preloadSounds(), 1200);
     return () => window.clearTimeout(timer);
@@ -210,12 +291,7 @@ export default function App() {
           <AutoThemeWatcher />
           <AmbientBackground />
           <RouteProgress />
-          <Shell>
-            <AnimatedRoutes />
-          </Shell>
-          <FloatingAsk />
-          <GlobalShortcuts />
-          <TourManager />
+          <TourManager ready={initialized}><SessionBoundary /></TourManager>
           <ThemedToaster />
         </BrowserRouter>
       </MotionConfig>

@@ -79,6 +79,7 @@ export function AmbientBackground() {
     return (
         <div
             aria-hidden
+            data-ambient-background
             className="pointer-events-none fixed inset-0 -z-10 overflow-hidden [contain:strict] transition-colors duration-1000"
         >
             {/* Base background fill */}

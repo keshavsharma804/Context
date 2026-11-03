@@ -38,7 +38,7 @@ from datetime import datetime
 
 
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 
 
 
@@ -46,7 +46,7 @@ from fastapi.responses import JSONResponse
 
 
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 
@@ -60,6 +60,10 @@ from typing import Optional, Union, List, Any
 
 from core.db import get_conn
 from core.passwords import hash_password, verify_password
+from core.auth import create_session, revoke_session
+from core.db import get_admin_conn
+from services.integrations import require_storage, integration_label
+from services.email_otp import EmailOTPError, send_signup_code, verify_signup_code
 
 
 
@@ -1044,7 +1048,8 @@ def api_config():
 
 
 
-    creds = load_credentials()
+    gmail_label = integration_label("gmail")
+    creds = {"email": gmail_label} if gmail_label else None
 
 
 
@@ -1376,6 +1381,7 @@ def api_gmail_connect(body: GmailConnectBody):
 
 
 
+    require_storage()
     ok_conn, msg = test_connection(email_addr, password)
 
 
@@ -1548,7 +1554,8 @@ def api_email(filter: str = "all"):
 
 
 
-        creds = load_credentials()
+        gmail_label = integration_label("gmail")
+        creds = {"email": gmail_label} if gmail_label else None
 
 
 
@@ -1792,6 +1799,7 @@ def api_groq_connect(body: GroqConnectBody):
 
 
 
+    require_storage()
     ok_key, msg = groq_test_key(key)
 
 
@@ -4854,7 +4862,7 @@ def api_onboarding_summary():
 
 
 
-            gmail_connected=load_credentials() is not None,
+            gmail_connected=integration_label("gmail") is not None,
 
 
 
@@ -5417,143 +5425,99 @@ def api_data_clear(body: ClearBody):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class AuthRegisterBody(BaseModel):
-    email: str
-    password: str
-    name: Optional[str] = None
+    email: str = Field(max_length=320)
+    password: str = Field(min_length=8, max_length=1024)
+    name: Optional[str] = Field(default=None, max_length=120)
     avatar: Optional[str] = None
+    remember: bool = True
+    otp: str = Field(pattern=r"^[0-9]{6,10}$")
+
+
+class SignupCodeBody(BaseModel):
+    email: str = Field(max_length=320)
+
+
+@router.post("/auth/signup-code")
+def auth_signup_code(body: SignupCodeBody):
+    email = body.email.strip().lower()
+    if "@" not in email or not email.split("@", 1)[1]:
+        return err("Enter a valid email address")
+    with get_admin_conn() as conn:
+        if conn.execute("SELECT 1 FROM context.users WHERE email = %s", (email,)).fetchone():
+            return err("An account with this email already exists. Sign in instead.", 409)
+    try:
+        send_signup_code(email)
+    except EmailOTPError as exc:
+        return err(str(exc), exc.status)
+    return ok(message="Check your inbox for your verification code.")
+
 
 class AuthLoginBody(BaseModel):
-    email: str
-    password: str
+    email: str = Field(max_length=320)
+    password: str = Field(min_length=1, max_length=1024)
+    remember: bool = True
+
+
+def _account_user(row):
+    return {"id": row["id"], "email": row["email"], "name": row["name"],
+            "avatar": row["avatar"], "provider": row["provider"], "role": row["role"],
+            "createdAt": row["created_at"], "lastSignInAt": row["last_sign_in_at"]}
+
 
 @router.post("/auth/register")
-def auth_register(body: AuthRegisterBody):
+def auth_register(body: AuthRegisterBody, request: Request):
+    from uuid import uuid4
+    from psycopg.errors import UniqueViolation
     email = body.email.strip().lower()
-    if not email:
-        return err("Email is required")
-    if not body.password:
-        return err("Password is required")
-    name = (body.name or "").strip() or email.split("@")[0].capitalize()
-    user_id = f"usr_{int(datetime.now().timestamp())}_{email.split('@')[0][:6]}"
-    now_str = datetime.now().isoformat()
-    
-    conn = get_conn()
+    if "@" not in email or not email.split("@", 1)[1]:
+        return err("Enter a valid email address")
+    with get_admin_conn() as conn:
+        if conn.execute("SELECT 1 FROM context.users WHERE email = %s", (email,)).fetchone():
+            return err("An account with this email already exists. Sign in instead.", 409)
     try:
-        row = conn.execute('SELECT * FROM context.users WHERE email = %s', (email,)).fetchone()
-        if row:
-            if not verify_password(body.password, row["password_hash"]):
-                return err("Invalid email or password", 401)
-            conn.execute(
-                'UPDATE context.users SET last_sign_in_at = %s, name = COALESCE(%s, name) WHERE email = %s',
-                (now_str, name, email)
-            )
-            conn.commit()
-            u = conn.execute('SELECT * FROM context.users WHERE email = %s', (email,)).fetchone()
-            user_data = {
-                "id": u["id"],
-                "email": u["email"],
-                "name": u["name"],
-                "avatar": u["avatar"],
-                "provider": u["provider"],
-                "role": u["role"],
-                "createdAt": u["created_at"],
-                "lastSignInAt": u["last_sign_in_at"]
-            }
-            return ok(user=user_data, message="Account updated and signed in")
+        verify_signup_code(email, body.otp)
+    except EmailOTPError as exc:
+        return err(str(exc), exc.status)
+    name = (body.name or "").strip() or email.split("@")[0].capitalize()
+    now = datetime.now().isoformat()
+    try:
+        with get_admin_conn() as conn:
+            row = conn.execute(
+                "INSERT INTO context.users(id,email,name,password_hash,avatar,provider,role,created_at,last_sign_in_at) "
+                "VALUES(%s,%s,%s,%s,%s,'email','Owner',%s,%s) RETURNING *",
+                ("usr_" + uuid4().hex, email, name, hash_password(body.password), body.avatar, now, now),
+            ).fetchone()
+    except UniqueViolation:
+        return err("An account with this email already exists. Sign in instead.", 409)
+    response = JSONResponse(ok(user=_account_user(row), message="Account created"))
+    return create_session(response, request, row["id"], body.remember)
 
-        conn.execute(
-            '\n            INSERT INTO context.users (id, email, name, password_hash, avatar, provider, role, created_at, last_sign_in_at)\n            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)\n            ',
-            (user_id, email, name, hash_password(body.password), body.avatar, "email", "Owner", now_str, now_str)
-        )
-        conn.commit()
-        user_data = {
-            "id": user_id,
-            "email": email,
-            "name": name,
-            "avatar": body.avatar,
-            "provider": "email",
-            "role": "Owner",
-            "createdAt": now_str,
-            "lastSignInAt": now_str
-        }
-        return ok(user=user_data, message=f"Welcome to Context, {name}!")
-    except Exception as e:
-        return err(str(e), 500)
-    finally:
-        conn.close()
 
 @router.post("/auth/login")
-def auth_login(body: AuthLoginBody):
+def auth_login(body: AuthLoginBody, request: Request):
     email = body.email.strip().lower()
-    if not email:
-        return err("Email is required")
-    if not body.password:
-        return err("Password is required")
-    now_str = datetime.now().isoformat()
-    
-    conn = get_conn()
-    try:
-        row = conn.execute('SELECT * FROM context.users WHERE email = %s', (email,)).fetchone()
-        if not row:
-            user_id = f"usr_{int(datetime.now().timestamp())}_{email.split('@')[0][:6]}"
-            name = email.split("@")[0].capitalize()
-            conn.execute(
-                '\n                INSERT INTO context.users (id, email, name, password_hash, provider, role, created_at, last_sign_in_at)\n                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)\n                ',
-                (user_id, email, name, hash_password(body.password), "email", "Owner", now_str, now_str)
-            )
-            conn.commit()
-            row = conn.execute('SELECT * FROM context.users WHERE email = %s', (email,)).fetchone()
-        else:
-            if not verify_password(body.password, row["password_hash"]):
-                return err("Invalid email or password", 401)
-            conn.execute('UPDATE context.users SET last_sign_in_at = %s WHERE email = %s', (now_str, email))
-            conn.commit()
-            row = conn.execute('SELECT * FROM context.users WHERE email = %s', (email,)).fetchone()
+    with get_admin_conn() as conn:
+        row = conn.execute("SELECT * FROM context.users WHERE email = %s", (email,)).fetchone()
+        if not row or not verify_password(body.password, row["password_hash"]):
+            return err("Invalid email or password", 401)
+        row = conn.execute(
+            "UPDATE context.users SET last_sign_in_at = %s WHERE id = %s RETURNING *",
+            (datetime.now().isoformat(), row["id"]),
+        ).fetchone()
+    response = JSONResponse(ok(user=_account_user(row), message="Signed in"))
+    return create_session(response, request, row["id"], body.remember)
 
-        user_data = {
-            "id": row["id"],
-            "email": row["email"],
-            "name": row["name"],
-            "avatar": row["avatar"],
-            "provider": row["provider"],
-            "role": row["role"],
-            "createdAt": row["created_at"],
-            "lastSignInAt": row["last_sign_in_at"]
-        }
-        return ok(user=user_data, message=f"Signed in as {row['email']}")
-    except Exception as e:
-        return err(str(e), 500)
-    finally:
-        conn.close()
 
 @router.get("/auth/me")
-def auth_me(email: Optional[str] = None):
-    conn = get_conn()
-    try:
-        if email:
-            row = conn.execute('SELECT * FROM context.users WHERE email = %s', (email.strip().lower(),)).fetchone()
-        else:
-            row = conn.execute('SELECT * FROM context.users ORDER BY last_sign_in_at DESC LIMIT 1').fetchone()
-        
-        if not row:
-            return ok(user=None)
-        
-        user_data = {
-            "id": row["id"],
-            "email": row["email"],
-            "name": row["name"],
-            "avatar": row["avatar"],
-            "provider": row["provider"],
-            "role": row["role"],
-            "createdAt": row["created_at"],
-            "lastSignInAt": row["last_sign_in_at"]
-        }
-        return ok(user=user_data)
-    except Exception as e:
-        return err(str(e), 500)
-    finally:
-        conn.close()
+def auth_me(request: Request):
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        return ok(user=None)
+    with get_admin_conn() as conn:
+        row = conn.execute("SELECT * FROM context.users WHERE id = %s", (user_id,)).fetchone()
+    return ok(user=_account_user(row) if row else None)
+
 
 @router.post("/auth/logout")
-def auth_logout():
-    return ok(message="Signed out successfully")
+def auth_logout(request: Request):
+    return revoke_session(request, JSONResponse(ok(message="Signed out")))

@@ -4,6 +4,8 @@ import { applyTheme as applyColorTheme, getCurrentTheme } from '@/lib/themes'
 export type Theme = 'dark' | 'light'
 export type NavStyle = 'sidebar' | 'topbar'
 export type ContentWidth = 'standard' | 'wide' | 'fit'
+export type InterfaceSize = 'fit' | 'compact' | 'default' | 'large'
+export type OpensOn = 'last' | 'today'
 export type AutoThemeMode = 'time-of-day' | 'interval'
 
 export interface AutoThemeDayMapping {
@@ -64,6 +66,10 @@ function applyTheme(theme: Theme) {
 }
 
 interface UIState {
+  interfaceSize: InterfaceSize
+  setInterfaceSize: (size: InterfaceSize) => void
+  opensOn: OpensOn
+  setOpensOn: (value: OpensOn) => void
   sidebarCollapsed: boolean
   toggleSidebar: () => void
 
@@ -117,6 +123,18 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
+  interfaceSize: (['fit', 'compact', 'default', 'large'].includes(localStorage.getItem('context:interface-size') || '')
+    ? localStorage.getItem('context:interface-size') : 'default') as InterfaceSize,
+  setInterfaceSize: interfaceSize => {
+    try { localStorage.setItem('context:interface-size', interfaceSize) } catch {}
+    document.documentElement.dataset.interfaceSize = interfaceSize
+    set({ interfaceSize })
+  },
+  opensOn: localStorage.getItem('context:opens-on') === 'last' ? 'last' : 'today',
+  setOpensOn: opensOn => {
+    try { localStorage.setItem('context:opens-on', opensOn) } catch {}
+    set({ opensOn })
+  },
   sidebarCollapsed: false,
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 

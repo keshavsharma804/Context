@@ -11,6 +11,7 @@ from psycopg.conninfo import conninfo_to_dict
 from psycopg_pool import ConnectionPool
 
 from core.config import DATABASE_URL, DB_POOL_SIZE
+from core.user_context import current_user_id
 
 _pool = None
 _pool_lock = Lock()
@@ -90,21 +91,34 @@ def _get_pool():
 class DatabaseConnection:
     """Return pooled connections safely when existing callers invoke close()."""
 
-    def __init__(self, pool, connection):
+    def __init__(self, pool, connection, admin=False):
         self._pool = pool
         self._connection = connection
+        self._admin = admin
+        self._user_id = current_user_id.get()
+        self._configured = False
+
+    def _configure(self):
+        if not self._admin and not self._configured:
+            self._connection.execute("SELECT set_config('context.user_id', %s, true)", (self._user_id or "",))
+            self._connection.execute("SET LOCAL ROLE context_app")
+            self._configured = True
 
     def execute(self, query, params=None):
+        self._configure()
         return self._connection.execute(query, params)
 
     def cursor(self):
+        self._configure()
         return self._connection.cursor()
 
     def commit(self):
         self._connection.commit()
+        self._configured = False
 
     def rollback(self):
         self._connection.rollback()
+        self._configured = False
 
     def transaction(self):
         return self._connection.transaction()
@@ -137,13 +151,22 @@ class DatabaseConnection:
             pass
 
 
-def get_conn():
+def _lease(admin=False):
     pool = _get_pool()
     try:
         connection = pool.getconn(timeout=15)
     except Exception:
         raise RuntimeError("Supabase database connection is temporarily unavailable.") from None
-    return DatabaseConnection(pool, connection)
+    return DatabaseConnection(pool, connection, admin=admin)
+
+
+def get_conn():
+    return _lease()
+
+
+def get_admin_conn():
+    """Only migrations and credential-verified session/account operations use this."""
+    return _lease(admin=True)
 
 
 def close_pool():
@@ -157,7 +180,7 @@ def close_pool():
 def init_db():
     """Apply versioned, idempotent migrations in a single transaction."""
     migration_dir = Path(__file__).resolve().parents[1] / "migrations"
-    with get_conn() as conn:
+    with get_admin_conn() as conn:
         conn.execute("SELECT pg_advisory_xact_lock(743920651)")
         conn.execute("CREATE SCHEMA IF NOT EXISTS context")
         conn.execute("REVOKE ALL ON SCHEMA context FROM PUBLIC")

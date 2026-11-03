@@ -54,7 +54,7 @@ export interface Theme {
   }
 }
 
-export const DEFAULT_THEME_ID = 'violet'
+export const DEFAULT_THEME_ID = 'obsidian'
 
 export const THEMES: Theme[] = [
   {
@@ -506,18 +506,26 @@ export function getThemeList(): Theme[] {
 export function resolveTheme(themeId: string): Theme {
   return (
     getThemeList().find((theme) => theme.id === themeId) ??
-    THEMES[0]
+    THEMES.find(theme => theme.id === DEFAULT_THEME_ID)!
   )
 }
 
 export function getCurrentTheme(): string {
   try {
-    const id = localStorage.getItem(STORAGE_KEY)
-    if (!id) return THEMES[0].id
+    let id = localStorage.getItem(STORAGE_KEY)
+    // Move the previous default once; later explicit Violet choices stay saved.
+    if (!localStorage.getItem('context:obsidian-default')) {
+      if (id === 'violet') {
+        id = DEFAULT_THEME_ID
+        localStorage.setItem(STORAGE_KEY, id)
+      }
+      localStorage.setItem('context:obsidian-default', '1')
+    }
+    if (!id) return DEFAULT_THEME_ID
     const known = getThemeList().some((theme) => theme.id === id)
-    return known ? id : THEMES[0].id
+    return known ? id : DEFAULT_THEME_ID
   } catch {
-    return THEMES[0].id
+    return DEFAULT_THEME_ID
   }
 }
 

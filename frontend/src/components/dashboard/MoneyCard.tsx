@@ -102,23 +102,18 @@ export function MoneyCard({ spend = EMPTY, symbol = "₹" }: Props) {
 
   return (
     <MotionCard
-      whileHover={{
-        scale: 1.02,
-        y: -2,
-        boxShadow: "0 16px 48px -16px hsl(var(--primary) / 0.32)",
-      }}
       className={overBudget ? "budget-alert" : undefined}
     >
-      <div className="p-5">
+      <div className="p-5 sm:p-6">
         <div className="flex items-center justify-between">
-          <CardHeading icon={Wallet} title="Money" />
+          <CardHeading icon={Wallet} title="Money" className="px-0 pt-0" />
           <div className="flex items-center gap-2">
             <motion.button
               whileHover={{ rotate: 90 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setAdding((value) => !value)}
               aria-label={adding ? "Close quick add" : "Add a spend"}
-              className="flex h-6 w-6 items-center justify-center rounded-md border border-hairline bg-surface-2 text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-hairline bg-surface-2 text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
             >
               {adding ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
             </motion.button>
@@ -126,13 +121,14 @@ export function MoneyCard({ spend = EMPTY, symbol = "₹" }: Props) {
               onClick={() => navigate("/money")}
               className="link-underline flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-primary"
             >
-              view <ArrowRight className="h-3 w-3" />
+              View all <ArrowRight className="h-3 w-3" />
             </button>
           </div>
         </div>
 
-        <div className="mt-3">
-          <div className="relative flex items-baseline gap-2">
+        <div className="mt-5 grid items-center gap-4 sm:grid-cols-2 sm:gap-6">
+          <div className="min-w-0">
+          <div className="relative flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <motion.span
               layoutId="money-total"
               className="text-3xl font-semibold tracking-tight tabular-nums"
@@ -173,6 +169,21 @@ export function MoneyCard({ spend = EMPTY, symbol = "₹" }: Props) {
               </span>
             </div>
           )}
+          </div>
+          {spend.week_total === 0 && spend.week_by_category.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-surface-1 p-4">
+              <p className="text-sm font-medium">No expenses this week</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Add an expense to start tracking your spending.</p>
+              {!adding && <button type="button" onClick={() => setAdding(true)} className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
+                <Plus className="h-3.5 w-3.5" /> Add expense
+              </button>}
+            </div>
+          ) : (
+            <div className="border-t border-border/50 pt-4 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
+              <p className="text-xs text-muted-foreground">This month</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums"><CountUp value={spend.month_total} prefix={symbol} decimals={0} /></p>
+            </div>
+          )}
         </div>
 
         <AnimatePresence initial={false}>
@@ -189,7 +200,7 @@ export function MoneyCard({ spend = EMPTY, symbol = "₹" }: Props) {
               }}
               className="mt-3 overflow-hidden"
             >
-              <div className="flex items-center gap-1.5 rounded-lg border border-hairline bg-surface-inset p-1.5">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-hairline bg-surface-inset p-2">
                 <span className="pl-1 text-xs text-muted-foreground">{symbol}</span>
                 <input
                   value={amount}

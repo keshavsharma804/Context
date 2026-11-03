@@ -22,6 +22,7 @@ import uvicorn
 
 from core.config import DOWNLOADS, DOCUMENTS, PORT, TEMPLATES_DIR
 from core.db import init_db, get_conn, close_pool
+from core.auth import SessionMiddleware
 from services.indexer import run as run_indexer, index_file
 from services.dots import find_forgotten_files, find_connections
 from services.jobsearch import job_search_brief, apply_oneliner
@@ -59,7 +60,7 @@ async def lifespan(app):
     stop_event = Event()
     worker = None
     app.state.indexing_status = "disabled"
-    if os.getenv("CONTEXT_BACKGROUND_SERVICES", "1") != "0":
+    if os.getenv("CONTEXT_BACKGROUND_SERVICES", "0") == "1":
         worker = Thread(target=run_background_services, args=(app, stop_event), daemon=True,
                         name="context-indexer")
         worker.start()
@@ -74,6 +75,7 @@ async def lifespan(app):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(SessionMiddleware)
 
 # Mount the JSON API router
 app.include_router(api_router, prefix="/api")

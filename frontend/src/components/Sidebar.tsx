@@ -37,7 +37,7 @@ interface NavGroup {
   }[]
 }
 
-const NAV_GROUPS: NavGroup[] = [
+export const NAV_GROUPS: NavGroup[] = [
   {
     name: 'Finance & Control',
     items: [

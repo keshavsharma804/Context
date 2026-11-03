@@ -1,5 +1,6 @@
-const NAME_KEY = 'context:user-name'
-const AVATAR_KEY = 'context:avatar'
+import { useAuthStore } from '@/store/auth'
+
+const profileKey = (field: string) => `context:profile:${useAuthStore.getState().user?.id || 'guest'}:${field}`
 
 function emit() {
   window.dispatchEvent(new Event('context:profile-changed'))
@@ -7,7 +8,7 @@ function emit() {
 
 export function getUserName(): string {
   try {
-    return (localStorage.getItem(NAME_KEY) ?? '').trim()
+    return (localStorage.getItem(profileKey('name')) ?? useAuthStore.getState().user?.name ?? '').trim()
   } catch {
     return ''
   }
@@ -16,8 +17,8 @@ export function getUserName(): string {
 export function setUserName(name: string) {
   try {
     const trimmed = name.trim()
-    if (trimmed) localStorage.setItem(NAME_KEY, trimmed)
-    else localStorage.removeItem(NAME_KEY)
+    if (trimmed) localStorage.setItem(profileKey('name'), trimmed)
+    else localStorage.removeItem(profileKey('name'))
   } catch {
     // ignore
   }
@@ -26,7 +27,7 @@ export function setUserName(name: string) {
 
 export function getUserAvatar(): string | null {
   try {
-    return localStorage.getItem(AVATAR_KEY)
+    return localStorage.getItem(profileKey('avatar')) ?? useAuthStore.getState().user?.avatar ?? null
   } catch {
     return null
   }
@@ -34,8 +35,8 @@ export function getUserAvatar(): string | null {
 
 export function setUserAvatar(dataUrl: string | null) {
   try {
-    if (dataUrl) localStorage.setItem(AVATAR_KEY, dataUrl)
-    else localStorage.removeItem(AVATAR_KEY)
+    if (dataUrl) localStorage.setItem(profileKey('avatar'), dataUrl)
+    else localStorage.removeItem(profileKey('avatar'))
   } catch {
     // storage may be full; ignore rather than break the app
   }

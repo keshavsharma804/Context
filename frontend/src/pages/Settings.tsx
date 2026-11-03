@@ -83,9 +83,8 @@ import {
 } from '@/lib/profile'
 import { useProfile } from '@/hooks/useProfile'
 import { cn } from '@/lib/utils'
-import { AuthSection } from '@/components/settings/AuthSection'
 
-type SettingsTab = 'appearance' | 'account' | 'sections' | 'privacy' | 'integrations' | 'profile'
+type SettingsTab = 'appearance' | 'sections' | 'privacy' | 'integrations' | 'profile'
 
 /* ─── Scoreboard Clock Component (Cricket Scoreboard Style) ─────────────────── */
 function ScoreboardClock() {
@@ -402,7 +401,7 @@ export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     const t = searchParams.get('tab') as SettingsTab
-    return ['appearance', 'account', 'sections', 'privacy', 'integrations', 'profile'].includes(t)
+    return ['appearance', 'sections', 'privacy', 'integrations', 'profile'].includes(t)
       ? t
       : 'appearance'
   })
@@ -420,6 +419,10 @@ export default function SettingsPage() {
     theme: uiTheme,
     soundEnabled: soundOn,
     toggleSound: handleSoundToggle,
+    interfaceSize,
+    setInterfaceSize,
+    opensOn,
+    setOpensOn,
     navStyle,
     setNavStyle,
     scoreboardClock,
@@ -478,7 +481,7 @@ export default function SettingsPage() {
     mutationFn: () => postGmailConnect(gmailEmail.trim(), gmailPassword.trim()),
     onSuccess: (result: { message?: string }) => {
       celebrateConnection()
-      toast.success(result.message || 'Gmail connected')
+      toast.success(result.message || 'Your Gmail connected')
       setGmailPassword('')
       queryClient.invalidateQueries()
     },
@@ -712,7 +715,6 @@ export default function SettingsPage() {
       <div className="mb-8 flex flex-wrap items-center gap-1.5 rounded-2xl border border-border/70 bg-card/60 p-1.5 backdrop-blur-xl">
         {[
           { id: 'appearance', label: 'Appearance', icon: Palette },
-          { id: 'account', label: 'Account & Auth', icon: ShieldCheck },
           { id: 'sections', label: 'Sections', icon: Sliders },
           { id: 'privacy', label: 'Privacy & Vault', icon: Lock },
           { id: 'integrations', label: 'Integrations & Data', icon: Zap },
@@ -791,7 +793,13 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Side Panel Option */}
-              <div
+              <div role="button" tabIndex={0} aria-pressed={navStyle === 'sidebar'}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setNavStyle('sidebar')
+                  }
+                }}
                 onClick={() => {
                   playClick()
                   setNavStyle('sidebar')
@@ -821,7 +829,13 @@ export default function SettingsPage() {
               </div>
 
               {/* Top Bar Option */}
-              <div
+              <div role="button" tabIndex={0} aria-pressed={navStyle === 'topbar'}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setNavStyle('topbar')
+                  }
+                }}
                 onClick={() => {
                   playClick()
                   setNavStyle('topbar')
@@ -848,6 +862,37 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+
+          <section className="rounded-3xl border border-border/70 bg-card/75 p-6">
+            <h2 className="text-base font-bold text-foreground">Interface size</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Choose how much space text and controls use throughout Context.</p>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Interface size">
+              {(['fit', 'compact', 'default', 'large'] as const).map(size => (
+                <button key={size} type="button" aria-pressed={interfaceSize === size}
+                  onClick={() => setInterfaceSize(size)}
+                  className={cn('rounded-xl border px-4 py-3 text-xs font-semibold capitalize transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+                    interfaceSize === size ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-surface-2')}>
+                  {size}
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-[11px] text-muted-foreground">Fit adapts to your screen. Your selection is saved on this browser.</p>
+          </section>
+
+          <section className="rounded-3xl border border-border/70 bg-card/75 p-6">
+            <h2 className="text-base font-bold text-foreground">Opens on</h2>
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2" role="group" aria-label="Opens on">
+              {([{ value: 'last', label: 'Where I left off' }, { value: 'today', label: 'Today' }] as const).map(option => (
+                <button key={option.value} type="button" aria-pressed={opensOn === option.value}
+                  onClick={() => setOpensOn(option.value)}
+                  className={cn('rounded-xl border px-4 py-3 text-left text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+                    opensOn === option.value ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-surface-2')}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Where Context opens when you start it. Where I left off brings you back to the section you were last in. Today opens your dashboard daily overview.</p>
+          </section>
 
           {/* Section: Atmosphere & Look Presets */}
           <div className="rounded-3xl border border-border/70 bg-card/75 p-6 backdrop-blur-xl shadow-[0_14px_36px_-26px_rgba(0,0,0,0.35),inset_0_1px_0_0_rgba(255,255,255,0.06)]">
@@ -1300,18 +1345,6 @@ export default function SettingsPage() {
       )}
 
       {/* ─── Tab: Account & User Auth (Supabase Ready) ────────────────────────── */}
-      {activeTab === 'account' && (
-        <motion.div
-          key="account"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <AuthSection />
-        </motion.div>
-      )}
-
-      {/* ─── Tab 2: Sections & Menu Manager ──────────────────────────────────── */}
       {activeTab === 'sections' && (
         <motion.div
           key="sections"
@@ -1510,7 +1543,7 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-foreground">Gmail IMAP</h3>
-                  <p className="text-[11px] text-muted-foreground">Sync emails through your backend over TLS.</p>
+                  <p className="text-[11px] text-muted-foreground">Connect your own Gmail account with a Google app password. Only your account can access this connection.</p>
                 </div>
               </div>
               <Badge variant={config.gmail_connected ? 'success' : 'secondary'} className="text-[10px]">
@@ -1574,8 +1607,8 @@ export default function SettingsPage() {
                   <Zap className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-foreground">Groq AI Engine</h3>
-                  <p className="text-[11px] text-muted-foreground">Ultra-fast Llama-3 synthesis and answers.</p>
+                  <h3 className="text-sm font-bold text-foreground">Personal AI API key</h3>
+                  <p className="text-[11px] text-muted-foreground">Add your own Groq API key. This connection is private to your account.</p>
                 </div>
               </div>
               <Badge variant={config.has_groq ? 'success' : 'secondary'} className="text-[10px]">
