@@ -1,0 +1,11 @@
+const fs = require('node:fs');
+const path = 'D:/.openclaw/PMO/Product_Management_dashboard_db/frontend/src/components/Layout.tsx';
+const source = fs.readFileSync(path, 'utf8');
+const before = '<OrdersPage tabs={[...ordersTabs, ...templateSectionTabs.orders]} onCreateTemplate={canEditCustomPages ? () => setIsPageBuilderOpen(true) : undefined}>';
+const after = '<OrdersPage tabs={[...ordersTabs, ...templateSectionTabs.orders]}>';
+if (!source.includes(before)) throw Error('Orders header not found.');
+const updated = source.replace(before, after);
+const ts = require('D:/.openclaw/PMO/Product_Management_dashboard_db/frontend/node_modules/typescript');
+if (ts.createSourceFile(path, updated, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX).parseDiagnostics.length) throw Error('Invalid TSX.');
+fs.writeFileSync(path, updated);
+console.log('Removed the Orders Create template button; automatic Orders template tabs remain connected.');

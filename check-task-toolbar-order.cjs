@@ -1,0 +1,40 @@
+const fs=require('node:fs'),assert=require('node:assert/strict');
+const root='D:/.openclaw/PMO/Product_Management_dashboard_db/frontend/';
+const ts=require(root+'node_modules/typescript');
+const React=require(root+'node_modules/react');
+const {renderToStaticMarkup}=require(root+'node_modules/react-dom/server');
+const context=React.createContext(null);
+let pathname='/task-management';
+function load(file){
+ const source=fs.readFileSync(root+'src/'+file,'utf8');
+ const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+ const exports={};
+ new Function('require','exports',compiled)(name=>{
+  if(name==='react')return React;
+  if(name==='react/jsx-runtime')return require(root+'node_modules/react/jsx-runtime');
+  if(name==='react-router-dom')return {useLocation:()=>({pathname}),NavLink:({to,children,className})=>React.createElement('a',{href:to,className:className({isActive:pathname===to})},children)};
+  if(name==='lucide-react')return new Proxy({},{get:()=>()=>React.createElement('span',{'aria-hidden':true})});
+  if(name==='../lib/dashboardMenu')return {isDashboardTabOn:()=>true};
+  if(name==='../lib/dashboardPages')return {prefetchDashboardPage:()=>{}};
+  if(name==='./orders/OrdersToolbar')return {OrdersToolbarContext:context,OrdersToolbar:({children})=>children};
+  if(name==='./OrdersPage')return {default:OrdersPage};
+  if(name==='./teamAutomationFilters')return {TeamAutomationFiltersProvider:({children})=>children};
+  throw Error('Unexpected import '+name);
+ },exports);
+ return exports;
+}
+const OrdersPage=load('components/OrdersPage.tsx').default;
+const team=load('components/TeamAutomationWorkspace.tsx');
+const tabs=[['/sop','SOP'],['/task-management','Task Management'],['/viktor-logs','Viktor Logs'],['/ai-assistant','AI Assistant'],['/productivity','Workfolio'],['/tdo-sop','Employee Productivity']].map(([path,label])=>({path,label}));
+const markup=renderToStaticMarkup(React.createElement(OrdersPage,{title:'Team and Automation',tabs,controlsBelowTabs:true},'task-body'));
+const controls=markup.indexOf('aria-label="Team and Automation controls"');
+assert.ok(markup.indexOf('</nav>')<controls);
+for(const tab of tabs)assert.ok(markup.indexOf('href="'+tab.path+'"')<controls);
+assert.equal((markup.match(/aria-label="Team and Automation controls"/g)||[]).length,1);
+assert.ok(controls<markup.indexOf('task-body'));
+const defaultMarkup=renderToStaticMarkup(React.createElement(OrdersPage,{title:'Other workspace',tabs},'body'));
+assert.ok(defaultMarkup.indexOf('aria-label="Other workspace controls"')<defaultMarkup.indexOf('<nav'));
+assert.equal(team.default({tabs,children:'task-body'}).props.children.props.controlsBelowTabs,true);
+pathname='/productivity';
+assert.equal(team.default({tabs,children:'workfolio-body'}).props.children.props.controlsBelowTabs,false);
+console.log('Rendered layout checks passed: all six tabs precede the single Task Management toolbar; other workspace header ordering is preserved.');

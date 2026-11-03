@@ -1,0 +1,802 @@
+/** Tailwind v4 + shadcn-compatible design system */
+@import "tailwindcss";
+
+/* Light-theme variant: `light:bg-...` */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
+/* ─── Theme tokens ──────────────────────────────────────────────────────────── */
+:root,
+:root[data-theme="dark"] {
+  --background: 240 12% 8.5%;
+  --foreground: 0 0% 98%;
+  --card: 240 12% 12.8%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 12% 13.8%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 262.1 83.3% 57.8%;
+  --primary-foreground: 210 20% 98%;
+  --secondary: 240 6% 17.5%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 6% 16.5%;
+  --muted-foreground: 240 6% 68%;
+  --accent: 240 6% 20%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 6% 21.5%;
+  --input: 240 6% 21.5%;
+  --ring: 240 4.9% 83.9%;
+  --radius: 0.75rem;
+
+  /* surfaces / hairlines (theme-aware, used instead of white/black alphas) */
+  --sidebar: 240 12% 7.8%;
+  --surface-1: rgba(255, 255, 255, 0.04);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --surface-3: rgba(255, 255, 255, 0.10);
+  --surface-inset: rgba(0, 0, 0, 0.25);
+  --hairline: rgba(255, 255, 255, 0.12);
+}
+
+:root[data-theme="light"] {
+  --background: 240 20% 98.4%;
+  --foreground: 240 10% 7%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 7%;
+  --primary: 262.1 83.3% 57.8%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 5.9% 10%;
+
+  --sidebar: 240 20% 97%;
+  --surface-1: rgba(15, 15, 20, 0.025);
+  --surface-2: rgba(15, 15, 20, 0.045);
+  --surface-3: rgba(15, 15, 20, 0.07);
+  --surface-inset: rgba(15, 15, 20, 0.035);
+  --hairline: rgba(15, 15, 20, 0.08);
+
+  --shadow-card: 0 1px 2px 0 rgb(15 15 20 / 0.04),
+    0 12px 32px -18px rgb(15 15 20 / 0.14);
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-inset: var(--surface-inset);
+  --color-hairline: var(--hairline);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 12px);
+
+  --font-sans: "Manrope", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.28), 0 16px 36px -16px rgb(0 0 0 / 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Base ──────────────────────────────────────────────────────────────────── */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.32);
+    color: hsl(var(--primary-foreground));
+  }
+
+  :root[data-theme="light"] ::selection {
+    background: hsl(var(--primary) / 0.2);
+    color: hsl(var(--foreground));
+  }
+
+  :focus-visible {
+    outline: none;
+  }
+}
+
+/* ─── Scrollbars ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.45);
+}
+:root[data-theme="light"] ::-webkit-scrollbar-thumb,
+:root[data-theme="light"]::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+}
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover,
+:root[data-theme="light"]::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Ask hero gradient + faint dot texture ─────────────────────────────────── */
+.ask-hero {
+  background:
+    radial-gradient(
+      120% 160% at 0% 0%,
+      hsl(var(--primary) / 0.22) 0%,
+      hsl(var(--primary) / 0.07) 38%,
+      transparent 64%
+    ),
+    radial-gradient(
+      90% 130% at 100% 0%,
+      hsl(var(--theme-accent) / 0.14) 0%,
+      transparent 58%
+    ),
+    hsl(var(--card));
+}
+
+.ask-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.09) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  opacity: 0.35;
+  mask-image: linear-gradient(135deg, black 0%, transparent 62%);
+  -webkit-mask-image: linear-gradient(135deg, black 0%, transparent 62%);
+}
+
+:root[data-theme="light"] .ask-hero {
+  background:
+    radial-gradient(
+      120% 160% at 0% 0%,
+      hsl(var(--primary) / 0.14) 0%,
+      hsl(var(--primary) / 0.04) 38%,
+      transparent 64%
+    ),
+    radial-gradient(
+      90% 130% at 100% 0%,
+      hsl(var(--theme-accent) / 0.09) 0%,
+      transparent 58%
+    ),
+    hsl(var(--card));
+}
+
+:root[data-theme="light"] .ask-hero::after {
+  background-image: radial-gradient(
+    rgba(24, 24, 27, 0.16) 1px,
+    transparent 1px
+  );
+  opacity: 0.5;
+}
+
+/* ─── Tag / badge colors ────────────────────────────────────────────────────── */
+.tag-office {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.22);
+}
+.tag-academic {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+}
+.tag-interview {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+}
+.tag-personal {
+  background: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.22);
+}
+.tag-other {
+  background: rgba(113, 113, 122, 0.12);
+  color: #a1a1aa;
+  border: 1px solid rgba(113, 113, 122, 0.22);
+}
+
+:root[data-theme="light"] .tag-office {
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.28);
+}
+:root[data-theme="light"] .tag-academic {
+  background: rgba(59, 130, 246, 0.09);
+  color: #1d4ed8;
+  border-color: rgba(59, 130, 246, 0.25);
+}
+:root[data-theme="light"] .tag-interview {
+  background: rgba(239, 68, 68, 0.09);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+:root[data-theme="light"] .tag-personal {
+  background: rgba(139, 92, 246, 0.1);
+  color: #6d28d9;
+  border-color: rgba(139, 92, 246, 0.25);
+}
+:root[data-theme="light"] .tag-other {
+  background: rgba(113, 113, 122, 0.09);
+  color: #52525b;
+  border-color: rgba(113, 113, 122, 0.22);
+}
+
+/* ─── Severity borders ──────────────────────────────────────────────────────── */
+.severity-warn {
+  border-left: 3px solid #f59e0b;
+}
+.severity-danger {
+  border-left: 3px solid #ef4444;
+}
+.severity-info {
+  border-left: 3px solid #6366f1;
+}
+
+/* ─── Kanban status pills ───────────────────────────────────────────────────── */
+.pill-applied {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+.pill-interview {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}
+.pill-offered {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+.pill-rejected {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+:root[data-theme="light"] .pill-applied {
+  background: rgba(245, 158, 11, 0.13);
+  color: #b45309;
+}
+:root[data-theme="light"] .pill-interview {
+  background: rgba(99, 102, 241, 0.11);
+  color: #4338ca;
+}
+:root[data-theme="light"] .pill-offered {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+:root[data-theme="light"] .pill-rejected {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+}
+
+/* ─── Light mode: keep low-opacity muted text legible on white ──────────────── */
+:root[data-theme="light"] .text-muted-foreground\/30 {
+  color: hsl(var(--muted-foreground) / 0.45);
+}
+:root[data-theme="light"] .text-muted-foreground\/35 {
+  color: hsl(var(--muted-foreground) / 0.5);
+}
+:root[data-theme="light"] .text-muted-foreground\/40 {
+  color: hsl(var(--muted-foreground) / 0.55);
+}
+:root[data-theme="light"] .text-muted-foreground\/45 {
+  color: hsl(var(--muted-foreground) / 0.6);
+}
+:root[data-theme="light"] .text-muted-foreground\/50 {
+  color: hsl(var(--muted-foreground) / 0.65);
+}
+
+/* ─── Animations ────────────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.08) 37%,
+    rgba(255, 255, 255, 0.04) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+:root[data-theme="light"] .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 15, 20, 0.05) 25%,
+    rgba(15, 15, 20, 0.09) 37%,
+    rgba(15, 15, 20, 0.05) 63%
+  );
+  background-size: 400% 100%;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.9);
+  }
+}
+.pulse-dot {
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+/* ─── Ripple ink ────────────────────────────────────────────────────────────── */
+@keyframes ripple-ink {
+  from {
+    transform: scale(0);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+.ripple-ink {
+  animation: ripple-ink 560ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Typewriter caret ──────────────────────────────────────────────────────── */
+@keyframes caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.type-caret {
+  animation: caret-blink 900ms steps(1) infinite;
+  font-weight: 300;
+}
+
+/* ─── Sold bar shimmer (flows once on mount) ────────────────────────────────── */
+@keyframes bar-sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(240%);
+  }
+}
+.bar-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  animation: bar-sheen 1.2s ease-out 0.35s both;
+}
+
+/* ─── Link underline that draws left → right ────────────────────────────────── */
+.link-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  transition: background-size 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.link-underline:hover,
+.link-underline:focus-visible {
+  background-size: 100% 1px;
+}
+
+/* ─── Budget alarm glow (2s, once) ──────────────────────────────────────────── */
+@keyframes budget-alarm {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  35% {
+    box-shadow: 0 0 42px 2px rgba(239, 68, 68, 0.3);
+  }
+  65% {
+    box-shadow: 0 0 28px 0 rgba(239, 68, 68, 0.2);
+  }
+}
+.budget-alarm {
+  animation: budget-alarm 2s ease-in-out 1;
+}
+
+/* ─── Golden birthday halo ──────────────────────────────────────────────────── */
+@keyframes golden-halo {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 14px 2px rgba(251, 191, 36, 0.45);
+  }
+}
+.birthday-glow {
+  animation: golden-halo 2.8s ease-in-out infinite;
+}
+
+/* ─── Self-drawing checkmark ────────────────────────────────────────────────── */
+.check-path {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: draw-check 620ms cubic-bezier(0.16, 1, 0.3, 1) 120ms forwards;
+}
+@keyframes draw-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot,
+  .type-caret,
+  .bar-sheen::after,
+  .birthday-glow,
+  .budget-alarm,
+  .ripple-ink {
+    animation: none;
+  }
+  .check-path {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+}
+
+/* ─── Card sheen on hover ───────────────────────────────────────────────────── */
+.card-sheen {
+  position: relative;
+}
+.card-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(
+    520px circle at var(--x, 50%) var(--y, 0%),
+    hsl(var(--primary) / 0.07),
+    transparent 42%
+  );
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+.card-sheen:hover::before {
+  opacity: 1;
+}
+
+/* ─── Theme wave (View Transitions API) ─────────────────────────────────────── */
+/*
+ * The incoming theme is revealed as a circular wave that starts at the toggle
+ * button (top-right) and sweeps across the window to the opposite corner.
+ * --wave-x / --wave-y / --wave-radius are set from ThemeToggle.tsx.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+  animation: theme-wave 760ms cubic-bezier(0.22, 0.61, 0.24, 1) both;
+}
+
+@keyframes theme-wave {
+  from {
+    clip-path: circle(0px at var(--wave-x, 100%) var(--wave-y, 0%));
+  }
+  to {
+    clip-path: circle(
+      var(--wave-radius, 150vmax) at var(--wave-x, 100%) var(--wave-y, 0%)
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* ─── Phase 4 page ambient effects (no theme tokens touched) ────────────────── */
+@keyframes money-wave-drift {
+  0% { background-position: 0% 50%; opacity: 0.55; }
+  50% { background-position: 100% 50%; opacity: 0.9; }
+  100% { background-position: 0% 50%; opacity: 0.55; }
+}
+.money-wave {
+  background-image: linear-gradient(
+    100deg,
+    transparent 0%,
+    hsl(var(--primary) / 0.18) 35%,
+    hsl(var(--primary) / 0.34) 50%,
+    hsl(var(--primary) / 0.18) 65%,
+    transparent 100%
+  );
+  background-size: 240% 100%;
+  animation: money-wave-drift 8s ease-in-out infinite;
+  filter: blur(26px);
+}
+
+@keyframes now-grid-pulse {
+  0%, 100% { opacity: 0.16; }
+  50% { opacity: 0.32; }
+}
+.now-grid {
+  background-image:
+    linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+  background-size: 100% 44px;
+  animation: now-grid-pulse 4s ease-in-out infinite;
+}
+
+@keyframes particle-float {
+  0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.25; }
+  50% { transform: translate3d(10px, -18px, 0); opacity: 0.55; }
+}
+.people-particle {
+  animation: particle-float 9s ease-in-out infinite;
+}
+
+@keyframes email-scan-sweep {
+  from { transform: translateY(-100%); opacity: 0; }
+  15% { opacity: 0.55; }
+  to { transform: translateY(1200%); opacity: 0; }
+}
+.email-scan {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--primary) / 0.22),
+    transparent
+  );
+  animation: email-scan-sweep 1.4s ease-out 1;
+}
+
+.files-grid-bg {
+  background-image:
+    linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+  background-size: 26px 26px;
+  opacity: 0;
+  transition: opacity 500ms ease;
+}
+.files-grid-bg[data-active="true"] {
+  opacity: 0.35;
+}
+
+@keyframes ring-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  60% { transform: translateX(-1.5px); }
+  80% { transform: translateX(1.5px); }
+}
+.ring-shake {
+  animation: ring-shake 2s ease-in-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .money-wave,
+  .now-grid,
+  .people-particle,
+  .email-scan,
+  .ring-shake {
+    animation: none !important;
+  }
+}
+
+/* ─── Phase 4.5: colour-theme extensions (additive; existing tokens untouched) ─ */
+
+:root {
+  --theme-accent: 262.1 83.3% 57.8%;
+  --theme-glow: rgba(139, 92, 246, 0.4);
+  --primary-hex: #8b5cf6;
+  --theme-accent-hex: #a78bfa;
+}
+
+/* Make colour swaps feel smooth without animating every element on first paint. */
+:root.theme-transition,
+:root.theme-transition body {
+  transition: background-color 500ms ease, color 500ms ease;
+}
+
+/* Ambient glow follows the active theme instead of hardcoded violet. */
+.ambient-glow {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 440px;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(
+      ellipse 55% 100% at 50% 0%,
+      hsl(var(--primary) / 0.16) 0%,
+      hsl(var(--primary) / 0.05) 45%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 35% 70% at 82% 0%,
+      hsl(var(--theme-accent) / 0.09) 0%,
+      transparent 70%
+    );
+}
+
+:root[data-theme="light"] .ambient-glow {
+  background:
+    radial-gradient(
+      ellipse 55% 100% at 50% 0%,
+      hsl(var(--primary) / 0.11) 0%,
+      hsl(var(--primary) / 0.035) 45%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 35% 70% at 82% 0%,
+      hsl(var(--theme-accent) / 0.06) 0%,
+      transparent 70%
+    );
+}
+
+.gradient-text,
+:root[data-theme="light"] .gradient-text {
+  background: linear-gradient(
+    120deg,
+    hsl(var(--primary)) 0%,
+    hsl(var(--theme-accent)) 55%,
+    hsl(var(--primary)) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* One-time pulse on the floating ask button. */
+@keyframes fab-pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+.fab-pulse {
+  animation: fab-pulse-ring 2s ease-out 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fab-pulse {
+    animation: none !important;
+  }
+}
+
+/* Floating ask scroll area: thin, theme-aware scrollbar. */
+.ask-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.35) transparent;
+}
+.ask-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.ask-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: hsl(var(--primary) / 0.3);
+}
+
+/* Custom Select & Option dark mode styling across all browsers */
+select {
+  color-scheme: dark;
+}
+:root[data-theme="light"] select {
+  color-scheme: light;
+}
+select option {
+  background-color: #16191d;
+  color: #f3f4f6;
+  padding: 8px 12px;
+}
+:root[data-theme="light"] select option {
+  background-color: #ffffff;
+  color: #111827;
+}
+

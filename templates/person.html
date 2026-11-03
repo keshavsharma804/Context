@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>{{ person.name }} — Context</title>
+    <style>
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            color: #1a1a1a;
+            background: #fafafa;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: .2rem;
+        }
+
+        .muted {
+            color: #888;
+            font-size: .9rem;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            margin: 1rem 0;
+        }
+
+        .card h2 {
+            font-size: .9rem;
+            margin: 0 0 .6rem;
+            color: #444;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .fact {
+            padding: .5rem 0;
+            border-bottom: 1px solid #f3f3f3;
+        }
+
+        .fact:last-child {
+            border-bottom: none;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: .7rem;
+            padding: .1rem .4rem;
+            background: #eef;
+            color: #223;
+            border-radius: 4px;
+            margin-right: .4rem;
+        }
+
+        a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <a href="/">← back</a>
+    <h1>{{ person.name }}</h1>
+    <div class="muted">
+        {% if person.birthday %}🎂 Birthday {{ person.birthday }} · {% endif %}
+        {% if person.last_contacted %}Last contacted {{ person.last_contacted[:10] }}{% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Facts</h2>
+        {% if person.facts %}
+        {% for f in person.facts %}
+        <div class="fact">
+            <span class="tag">{{ f.category }}</span>{{ f.fact }}
+            <div class="muted" style="font-size:.78rem">{{ f.created_at[:10] }}</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="muted">No facts yet. Add one: <code>person {{ person.name }}: got new job</code></div>
+        {% endif %}
+    </div>
+</body>
+
+</html>

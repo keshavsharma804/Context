@@ -1,0 +1,707 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Context</title>
+    <style>
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            color: #1a1a1a;
+            background: #fafafa;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            margin-bottom: .2rem;
+        }
+
+        .sub {
+            color: #666;
+            font-size: .85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        form {
+            display: flex;
+            gap: .5rem;
+        }
+
+        input[type=text],
+        input[type=email],
+        input[type=password] {
+            flex: 1;
+            padding: .7rem 1rem;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        button {
+            padding: .7rem 1.2rem;
+            border: none;
+            border-radius: 8px;
+            background: #111;
+            color: white;
+            cursor: pointer;
+            font-size: .95rem;
+        }
+
+        button:hover {
+            background: #333;
+        }
+
+        button.ghost {
+            background: #f3f3f3;
+            color: #333;
+        }
+
+        button.ghost:hover {
+            background: #e5e5e5;
+        }
+
+        button.small {
+            padding: .3rem .7rem;
+            font-size: .78rem;
+            background: #f3f3f3;
+            color: #666;
+        }
+
+        button.small:hover {
+            background: #e5e5e5;
+            color: #111;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .card h2 {
+            font-size: .95rem;
+            margin: 0 0 .6rem;
+            color: #444;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .warn {
+            color: #b45309;
+        }
+
+        .danger {
+            color: #b91c1c;
+        }
+
+        .dot {
+            color: #2563eb;
+        }
+
+        .ok {
+            color: #065f46;
+        }
+
+        .row {
+            padding: .45rem 0;
+            border-bottom: 1px solid #f3f3f3;
+            font-size: .92rem;
+            display: flex;
+            align-items: flex-start;
+            gap: .5rem;
+        }
+
+        .row:last-child {
+            border-bottom: none;
+        }
+
+        .row>.row-body {
+            flex: 1;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: .72rem;
+            padding: .1rem .4rem;
+            background: #eef;
+            color: #223;
+            border-radius: 4px;
+            margin-right: .4rem;
+            text-transform: lowercase;
+        }
+
+        .tag.academic {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .tag.office {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .tag.interview {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .tag.personal {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .severity-warn {
+            border-left: 3px solid #f59e0b;
+            padding-left: .7rem;
+        }
+
+        .severity-danger {
+            border-left: 3px solid #dc2626;
+            padding-left: .7rem;
+        }
+
+        .severity-info {
+            border-left: 3px solid #3b82f6;
+            padding-left: .7rem;
+        }
+
+        a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .empty {
+            color: #888;
+            font-size: .9rem;
+        }
+
+        .stats {
+            font-size: .8rem;
+            color: #666;
+            margin-top: 2rem;
+        }
+
+        .pill {
+            display: inline-block;
+            font-size: .72rem;
+            padding: .15rem .5rem;
+            border-radius: 999px;
+            margin-left: .4rem;
+            font-weight: 500;
+        }
+
+        .pill.applied {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .pill.interview {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .pill.offered {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .pill.rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .quickbar {
+            position: sticky;
+            bottom: 0;
+            background: #fafafa;
+            padding-top: .8rem;
+            border-top: 1px solid #eee;
+            margin-top: 2rem;
+        }
+
+        .hint {
+            color: #888;
+            font-size: .78rem;
+            margin-top: .4rem;
+            line-height: 1.5;
+        }
+
+        .muted {
+            color: #888;
+            font-size: .82rem;
+        }
+
+        .slot {
+            color: #065f46;
+            font-size: .86rem;
+        }
+
+        .upload-form {
+            display: flex;
+            gap: .5rem;
+            margin-top: .6rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .gmail-form {
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+            margin-top: .8rem;
+        }
+
+        .flash {
+            padding: .7rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: .9rem;
+        }
+
+        .flash.ok {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        .flash.err {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        .snippet {
+            color: #555;
+            font-size: .82rem;
+            margin-top: .2rem;
+            line-height: 1.4;
+        }
+
+        .ask-hero {
+            background: linear-gradient(135deg, #eef2ff, #fdf4ff);
+            border: 1px solid #e0e7ff;
+            border-radius: 12px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .ask-hero h2 {
+            margin: 0 0 .5rem;
+            font-size: .95rem;
+            color: #3730a3;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .answer {
+            background: #fff;
+            border: 1px solid #c7d2fe;
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .answer .q {
+            font-weight: 600;
+            margin-bottom: .5rem;
+        }
+
+        .answer .a {
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .sources {
+            margin-top: .6rem;
+            font-size: .8rem;
+            color: #666;
+        }
+
+        .activity-row {
+            font-size: .84rem;
+            padding: .3rem 0;
+        }
+
+        .activity-time {
+            color: #999;
+            font-family: monospace;
+            margin-right: .5rem;
+        }
+
+        .money-total {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #111;
+        }
+
+        .budget-bar {
+            height: 6px;
+            background: #eee;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: .3rem;
+        }
+
+        .budget-fill {
+            height: 100%;
+            background: #10b981;
+        }
+
+        .budget-fill.over {
+            background: #ef4444;
+        }
+
+        .person-chip {
+            display: inline-block;
+            padding: .25rem .6rem;
+            background: #eef;
+            border-radius: 999px;
+            font-size: .82rem;
+            margin: .15rem .3rem .15rem 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Context</h1>
+    <div class="sub">Your local memory — reads what you already produce. Nothing to type.</div>
+
+    {% if flash %}<div class="flash ok">✅ {{ flash }}</div>{% endif %}
+    {% if error %}<div class="flash err">❌ {{ error }}</div>{% endif %}
+
+    {% if has_groq %}
+    <div class="ask-hero">
+        <h2>💬 Ask anything about your data</h2>
+        <form method="post" action="/ask">
+            <input type="text" name="question"
+                placeholder='e.g. "what did I promise Tom" · "how much did I spend on food" · "what patterns am I stuck in"'
+                value="{{ question or '' }}" autofocus>
+            <button type="submit">Ask</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="card">
+        <h2>🔌 Connect Groq (free LLM)</h2>
+        <div class="muted">Paste your Groq API key. Free tier is plenty for personal use.</div>
+        <form class="gmail-form" method="post" action="/groq/connect">
+            <input type="password" name="api_key" placeholder="gsk_...">
+            <button type="submit">Save key</button>
+        </form>
+        <div class="hint">Get a free key at <a href="https://console.groq.com/keys"
+                target="_blank">console.groq.com/keys</a></div>
+    </div>
+    {% endif %}
+
+    {% if answer %}
+    <div class="answer">
+        <div class="q">❓ {{ question }}</div>
+        <div class="a">{{ answer }}</div>
+        {% if sources %}
+        <div class="sources">Sources:
+            {% for s in sources[:8] %}<span>• {{ s.type }}: {{ s.title[:60] }}</span>{% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <form method="get" action="/" style="margin-bottom:2rem">
+        <input type="text" name="q" value="{{ q }}" placeholder="search files, pages, topics...">
+        <button type="submit">Search</button>
+    </form>
+
+    {% if not q %}
+
+    {# ============ PATTERNS ============ #}
+    {% if patterns.count > 0 %}
+    <div class="card">
+        <h2>🔍 Patterns I noticed ({{ patterns.count }})</h2>
+        {% for p in patterns.patterns %}
+        <div class="row severity-{{ p.severity }}">
+            <div class="row-body">
+                <b>{{ p.title }}</b>
+                <div class="muted" style="margin-top:.2rem">{{ p.detail }}</div>
+            </div>
+            <form method="post" action="/patterns/dismiss" style="margin:0">
+                <input type="hidden" name="id" value="{{ p.id }}">
+                <button type="submit" class="small">Dismiss</button>
+            </form>
+        </div>
+        {% endfor %}
+        <div style="margin-top:.6rem">
+            <form method="post" action="/patterns/refresh" style="display:inline">
+                <button type="submit" class="ghost">Refresh patterns</button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <h2>🔍 Patterns</h2>
+        <div class="empty">No patterns detected yet. Need more data (spends, emails, activity) over a few days.</div>
+        <form method="post" action="/patterns/refresh" style="margin-top:.6rem">
+            <button type="submit" class="ghost">Detect now</button>
+        </form>
+    </div>
+    {% endif %}
+
+    {# ============ MONEY ============ #}
+    <div class="card">
+        <h2>💸 Money</h2>
+        <div class="money-total">₹{{ "%.0f"|format(spend.week_total) }} <span class="muted"
+                style="font-size:.9rem;font-weight:400">this week</span></div>
+        <div class="muted" style="font-size:.8rem">
+            ₹{{ "%.0f"|format(spend.month_total) }} this month
+            {% if spend.compare.change_pct != 0 %}
+            · <span class="{{ 'danger' if spend.compare.change_pct > 0 else 'ok' }}">
+                {{ '+' if spend.compare.change_pct > 0 }}{{ spend.compare.change_pct }}%</span> vs last week
+            {% endif %}
+        </div>
+        {% if spend.week_by_category %}
+        <div style="margin-top:.8rem">
+            {% for c in spend.week_by_category %}
+            <div class="row">
+                <div class="row-body"><b>{{ c.category }}</b> — ₹{{ "%.0f"|format(c.total) }} <span class="muted">({{
+                        c.count }})</span></div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if spend.budgets %}
+        <div style="margin-top:.8rem">
+            <div class="muted" style="margin-bottom:.4rem"><b>Budgets</b></div>
+            {% for b in spend.budgets %}
+            <div class="row">
+                <div class="row-body">
+                    <b>{{ b.category }}</b> — ₹{{ "%.0f"|format(b.spent) }} / ₹{{ "%.0f"|format(b.budget) }}
+                    <span class="muted">({{ b.percent }}%)</span>
+                    {% set pct_int = b.percent if b.percent < 100 else 100 %} <div class="budget-bar">
+                        <div class="budget-fill {{ 'over' if b.over }}" data-width="{{ pct_int }}"></div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if spend.leaks %}
+    <div style="margin-top:.8rem">
+        <div class="muted" style="margin-bottom:.3rem"><b>Leaks</b></div>
+        {% for l in spend.leaks %}
+        <div class="muted" style="font-size:.85rem">• {{ l.detail }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if not spend.week_total and not spend.month_total %}
+    <div class="empty" style="margin-top:.6rem">Log spends with: <code>spent 340 swiggy lunch</code></div>
+    {% endif %}
+    </div>
+
+    {# ============ PEOPLE ============ #}
+    <div class="card">
+        <h2>👥 People ({{ people.total }})</h2>
+        {% if people.upcoming_birthdays %}
+        <div class="muted" style="margin-bottom:.4rem"><b>🎂 Birthdays soon</b></div>
+        {% for b in people.upcoming_birthdays %}
+        <div class="row">
+            <div class="row-body">
+                <a href="/people/{{ b.name }}">{{ b.name }}</a> —
+                in {{ b.in_days }} day{{ 's' if b.in_days != 1 }} ({{ b.birthday }})
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% if people.needing_contact %}
+        <div class="muted" style="margin-top:.8rem;margin-bottom:.4rem"><b>📞 Reach out to</b></div>
+        {% for p in people.needing_contact %}
+        <div class="row">
+            <div class="row-body">
+                <a href="/people/{{ p.name }}">{{ p.name }}</a> —
+                <span class="warn">{{ p.days_since }} days since last contact</span>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% if people.total == 0 %}
+        <div class="empty">Add a person with: <code>person Priya: got new job</code></div>
+        {% endif %}
+    </div>
+
+    {# ============ TODAY ============ #}
+    <div class="card">
+        <h2>☀️ Today</h2>
+        {% if cal.today %}
+        {% for e in cal.today %}
+        <div class="row">
+            <span class="tag {{ e.category }}">{{ e.category }}</span>
+            <b>{{ e.start_at[11:16] }}</b> — {{ e.title }}
+            {% if e.company %}<span class="muted">· {{ e.company }}</span>{% endif %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty">No events today.</div>
+        {% endif %}
+        {% if cal.collisions %}
+        <div style="margin-top:.8rem">
+            <div class="muted" style="margin-bottom:.3rem"><b>⚠️ Collisions</b></div>
+            {% for c in cal.collisions %}
+            <div class="row danger">{{ c.a }} ({{ c.a_start[11:16] }}) overlaps {{ c.b }} ({{ c.b_start[11:16] }})</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if cal.free_slots %}
+        <div style="margin-top:.8rem">
+            <div class="muted" style="margin-bottom:.3rem"><b>🟢 Free slots</b></div>
+            {% for s in cal.free_slots[:5] %}
+            <div class="row slot">{{ s.start[11:16] }} → {{ s.end[11:16] }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    {# ============ GMAIL ============ #}
+    {% if gmail.connected %}
+    <div class="card">
+        <h2>📬 Email</h2>
+        <div class="muted">{{ gmail.email }} · {{ gmail.total_emails }} emails</div>
+        {% if gmail.unanswered %}
+        <div class="muted" style="margin-top:.8rem;margin-bottom:.4rem"><b>💬 Needs your reply</b></div>
+        {% for e in gmail.unanswered[:5] %}
+        <div class="row">
+            <div class="row-body">
+                <b>{{ e.from_name or e.from_addr }}</b> — {{ e.subject }}
+                <div class="snippet">{{ e.body_snippet[:130] }}</div>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+        <div style="margin-top:1rem;display:flex;gap:.5rem">
+            <form method="post" action="/gmail/fetch"><button type="submit">Fetch new emails</button></form>
+            <form method="post" action="/gmail/disconnect"><button type="submit" class="ghost">Disconnect</button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <h2>📬 Connect Gmail (read-only)</h2>
+        <form class="gmail-form" method="post" action="/gmail/connect">
+            <input type="email" name="email" placeholder="you@gmail.com" required>
+            <input type="password" name="app_password" placeholder="16-char App Password" required>
+            <button type="submit">Connect Gmail</button>
+        </form>
+    </div>
+    {% endif %}
+
+    {# ============ JOB SEARCH ============ #}
+    {% if job and (job.applications or job.interviews) %}
+    <div class="card">
+        <h2>💼 Job Search</h2>
+        {% for a in job.applications %}
+        <div class="row">
+            <div class="row-body"><b>{{ a.company }}</b>
+                <span class="pill {{ a.status }}">{{ a.status }}</span>
+                <span class="muted">· {{ a.applied_at[:10] if a.applied_at }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ============ FORGOTTEN ============ #}
+    {% if forgotten %}
+    <div class="card">
+        <h2>⚠️ You're forgetting</h2>
+        {% for f in forgotten %}
+        <div class="row">
+            <div class="row-body">
+                <span class="tag">{{ f.category }}</span>{{ f.message }}
+            </div>
+            <form method="post" action="/ignore" style="margin:0">
+                <input type="hidden" name="path" value="{{ f.path }}">
+                <button type="submit" class="small">Ignore</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ============ ACTIVITY ============ #}
+    {% if activity %}
+    <div class="card">
+        <h2>🕒 Recent activity</h2>
+        {% for a in activity %}
+        <div class="activity-row">
+            <span class="activity-time">{{ a.timestamp[11:16] }}</span>
+            {% if a.kind == 'file_open' %}📂 {{ a.detail }}
+            {% elif a.kind == 'page_visit' %}🌐 {{ (a.detail or a.target)[:90] }}
+            {% elif a.kind == 'window' %}🖥️ {{ a.target[:90] }}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% endif %}
+
+    {% if file_rows %}
+    <div class="card">
+        <h2>📄 Files {% if q %}matching "{{ q }}"{% else %}— recent{% endif %}</h2>
+        {% for r in file_rows %}
+        <div class="row">
+            <div class="row-body">
+                <span class="tag">{{ r.category }}</span>
+                <a href="{{ r.file_url }}">{{ r.name }}</a>
+                {% if r.snip %}<div class="snippet">{{ r.snip|safe }}</div>{% endif %}
+                <div class="muted" style="font-size:.78rem">{{ r.downloaded[:10] }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if hist_rows %}
+    <div class="card">
+        <h2>🌐 Pages {% if q %}matching "{{ q }}"{% else %}— recent{% endif %}</h2>
+        {% for r in hist_rows %}
+        <div class="row">
+            <div class="row-body">
+                <a href="{{ r.url }}" target="_blank">{{ r.title or r.url }}</a>
+                {% if r.snip %}<div class="snippet">{{ r.snip|safe }}</div>{% endif %}
+                <div class="muted" style="font-size:.78rem">{{ r.last_visit[:19] }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="quickbar">
+        <form method="post" action="/quick">
+            <input type="text" name="line"
+                placeholder="spent 340 swiggy lunch · budget food 3000 · person Priya: new job · met Tom: sick · note: ... · task ...">
+            <button type="submit">Add</button>
+        </form>
+        <div class="hint">
+            <code>spent 340 swiggy lunch</code> · <code>budget food 3000</code> ·
+            <code>person Priya: got new job</code> · <code>met Priya: marathon training</code> ·
+            <code>birthday Priya: 03-15</code> · <code>note: ...</code> · <code>task ...</code> ·
+            <code>applied infosys</code> · <code>interview infosys friday 3pm</code>
+        </div>
+    </div>
+
+    <div class="stats">
+        {{ total_files }} files · {{ total_hist }} pages · {{ total_events }} events · {{ total_emails }} emails
+        · {{ total_chunks }} chunks · <a href="/rescan">rescan</a>
+        {% if has_groq %}
+        · <form method="post" action="/groq/disconnect" style="display:inline"><button type="submit"
+                class="small">Disconnect Groq</button></form>
+        {% endif %}
+    </div>
+</body>
+
+</html>
