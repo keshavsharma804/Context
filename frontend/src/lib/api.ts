@@ -1,6 +1,6 @@
 /**
  * lib/api.ts — typed fetch helpers for all Context API endpoints.
- * All calls go through Vite's proxy (/api → http://127.0.0.1:3000/api).
+ * Local requests use Vite's proxy; production requests use Vercel's /api rewrite.
  */
 
 const BASE = '/api'
