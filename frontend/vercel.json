@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://context-1-ocov.onrender.com/api/:path*"
+      "destination": "https://backend-project-jet.vercel.app/api/:path*"
     },
     {
       "source": "/(.*)",
