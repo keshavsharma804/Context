@@ -17,9 +17,15 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     headers,
     credentials: 'include',
   })
-  const json = await res.json()
   if (res.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event('context:session-expired'))
-  if (!json.ok) throw new Error(json.error ?? 'API error')
+  let json
+  try { json = await res.json() } catch {
+    throw new Error(`Server returned HTTP ${res.status}. Please try again shortly.`)
+  }
+  if (!res.ok || !json?.ok) {
+    const reference = json?.reference ? ` (reference: ${json.reference})` : ''
+    throw new Error((json?.error ?? `Server returned HTTP ${res.status}`) + reference)
+  }
   return json as T
 }
 

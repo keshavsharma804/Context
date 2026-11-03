@@ -5448,7 +5448,7 @@ def auth_signup_code(body: SignupCodeBody):
     try:
         send_signup_code(email)
     except EmailOTPError as exc:
-        return err(str(exc), exc.status)
+        return JSONResponse({'ok': False, 'error': str(exc), 'code': exc.code}, status_code=exc.status)
     return ok(message="Check your inbox for your verification code.")
 
 
@@ -5477,7 +5477,7 @@ def auth_register(body: AuthRegisterBody, request: Request):
     try:
         verify_signup_code(email, body.otp)
     except EmailOTPError as exc:
-        return err(str(exc), exc.status)
+        return JSONResponse({'ok': False, 'error': str(exc), 'code': exc.code}, status_code=exc.status)
     name = (body.name or "").strip() or email.split("@")[0].capitalize()
     now = datetime.now().isoformat()
     try:

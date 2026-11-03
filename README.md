@@ -126,5 +126,16 @@ Supabase Auth creates its email identity while sending the code; the private
 access/refresh tokens are not sent to the browser or accepted as Context sessions.
 No Google OAuth configuration is required.
 
+If hosted signup fails, check the failed request in Vercel's project-level Request
+Logs with the latest Production deployment selected. `AUTH_DATABASE_UNAVAILABLE`
+means the account database could not be reached; `AUTH_DATABASE_SCHEMA_ERROR`
+indicates a schema/permission problem. Check that Supabase is active and the backend
+Production environment has the correct `DATABASE_URL`. Supabase's Session pooler
+connection string (port 5432) is an IPv4-compatible option. Copy its full username
+and use the database password, not a Supabase API key or Gmail app password.
+Redeploy after updating environment variables. `/api/health` is a liveness check
+and does not perform a live database query. Errors include a reference matching
+safe `request_failed` log lines; never paste raw connection URLs or tokens.
+
 References: [Supabase email OTP](https://supabase.com/docs/guides/auth/auth-email-passwordless)
 and [SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp).

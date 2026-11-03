@@ -128,6 +128,14 @@ try {
   assert.ok(!renderStartup(true).includes('Initializing Context'))
   localStorage.removeItem('context:tour_completed')
   globalThis.document = { documentElement: { dataset: {}, style: {} }, cookie: '' }
+  const { postAuthSignupCode } = await server.ssrLoadModule('/src/lib/api.ts')
+  const originalFetch = globalThis.fetch
+  try {
+    globalThis.fetch = async () => new Response('Internal Server Error', { status: 500 })
+    await assert.rejects(postAuthSignupCode('fixture@example.invalid'), /HTTP 500/)
+    globalThis.fetch = async () => Response.json({ ok: false, error: 'Account storage is temporarily unavailable.', reference: 'fixture-reference' }, { status: 503 })
+    await assert.rejects(postAuthSignupCode('fixture@example.invalid'), /fixture-reference/)
+  } finally { globalThis.fetch = originalFetch }
   for (const size of ['fit', 'compact', 'default', 'large']) {
     useUIStore.getState().setInterfaceSize(size)
     assert.equal(document.documentElement.dataset.interfaceSize, size)

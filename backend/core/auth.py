@@ -11,6 +11,7 @@ from starlette.requests import Request
 
 from core.db import get_admin_conn
 from core.user_context import current_user_id
+from core.errors import request_failure
 
 SESSION_COOKIE = "context_session"
 CSRF_COOKIE = "context_csrf"
@@ -66,6 +67,25 @@ class SessionMiddleware:
         self.app = app
 
     async def __call__(self, scope, receive, send):
+        if scope['type'] != 'http':
+            return await self.app(scope, receive, send)
+        started = False
+
+        async def track_send(message):
+            nonlocal started
+            if message['type'] == 'http.response.start':
+                started = True
+            await send(message)
+
+        try:
+            await self._dispatch(scope, receive, track_send)
+        except Exception as error:
+            if started:
+                raise
+            response = request_failure(error, scope.get('state', {}).get('failure_stage', 'request'))
+            await response(scope, receive, send)
+
+    async def _dispatch(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         request = Request(scope)
@@ -73,7 +93,9 @@ class SessionMiddleware:
         public = path in {"/api/health", "/api/auth/login", "/api/auth/register", "/api/auth/signup-code", "/api/auth/me"}
         if path == "/api/health":
             return await self.app(scope, receive, send)
+        scope.setdefault('state', {})['failure_stage'] = 'session_lookup'
         session = await run_in_threadpool(get_session, request.cookies.get(SESSION_COOKIE))
+        scope['state']['failure_stage'] = 'account_operation' if path.startswith('/api/auth/') else 'request'
         if not public and not session:
             return await JSONResponse({"ok": False, "error": "Sign in to continue"}, status_code=401)(scope, receive, send)
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
