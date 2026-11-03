@@ -149,12 +149,16 @@ Sheets URL. Google Sheets shortcut `.gsheet` files are also accepted when they
 contain a valid sheet URL. Private Sheets require downloading and uploading the
 file; the app does not request Google account access or make documents public.
 
-The first nonempty row supplies column names. Choose a workbook tab, review the
+The importer detects the header among the first 25 rows, skipping title rows and
+introductory spacing. Use **Header row** to correct the selection if needed.
+Choose a workbook tab, review the
 detected category and column mapping, then select **Encrypt & import**. Common
 password-manager headings such as name, url, username, password, and notes map
 automatically. Bank, card, ID, UPI, and note fields are supported. Unrecognized
 columns can be mapped manually; unmapped columns are explicitly marked ignored.
-Resolve invalid rows or duplicate destination mappings before saving.
+Phone, authenticator, and two-step verification columns are supported for logins.
+Resolve invalid rows or explicitly choose to skip incomplete rows before saving.
+Duplicate destination mappings must be corrected before any rows can be saved.
 
 Imports are limited to 5 MB, 1,000 data rows, and 100 columns per tab. SheetJS is
 loaded only when parsing a file. Parsing and AES-GCM encryption happen in browser

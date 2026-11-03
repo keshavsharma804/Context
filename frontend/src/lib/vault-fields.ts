@@ -5,7 +5,7 @@ export const VAULT_FIELDS: Record<VaultCategory, string[]> = {
   card: ['cardholder', 'card_number', 'expiry', 'cvv', 'pin', 'card_network', 'card_type', 'bank'],
   id: ['id_type', 'id_number', 'full_name', 'dob', 'expiry_date', 'address'],
   upi: ['upi_id', 'upi_provider', 'beneficiary', 'linked_bank', 'upi_pin'],
-  password: ['username', 'password', 'url', 'service'],
+  password: ['username', 'password', 'url', 'service', 'phone', 'authenticator', 'two_step_verification'],
   note: ['note_title', 'content'],
 }
 const CATEGORY_KEYS = new Set(Object.values(VAULT_FIELDS).flat())

@@ -7,7 +7,7 @@ import * as XLSX from 'xlsx'
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 try {
-  const { readImportSheets, prepareImport, detectColumns, googleSheetCsvUrl, loadGoogleSheet, IMPORT_MAX_BYTES } = await server.ssrLoadModule('/src/lib/vault-import.ts')
+  const { readImportSheets, prepareImport, detectColumns, googleSheetCsvUrl, loadGoogleSheet, selectImportHeader, IMPORT_MAX_BYTES } = await server.ssrLoadModule('/src/lib/vault-import.ts')
   const { cleanVaultData, visibleVaultFields, vaultDefaults } = await server.ssrLoadModule('/src/lib/vault-fields.ts')
   const { VaultItemCard } = await server.ssrLoadModule('/src/components/vault/VaultItemCard.tsx')
   const csv = '\uFEFFname,url,username,password,notes\r\nGmail,https://mail.google.com,fixture@example.invalid,"  pass,word  ","line one\nline two"\r\n'
@@ -20,6 +20,24 @@ try {
   assert.equal(result.items[0].data.notes, 'line one\nline two')
   assert.equal(result.items[0].title, 'Gmail')
   assert.ok(!('account_type' in result.items[0].data))
+
+  const titled = (await readImportSheets('Team Credentials,,,,,,,\nS No,Site,Email,Phone No,Authenicator,Two Step Verification,Password,Site Link\n1,Fixture,fixture@example.invalid,0012345678,fixture-authenticator,Enabled,fixture-secret,https://example.invalid\n2,Unfinished,,,,,,\n'))[0]
+  assert.equal(titled.headerRow, 2)
+  const titledResult = prepareImport(titled, detectColumns(titled.headers))
+  assert.equal(titledResult.items.length, 1)
+  assert.equal(titledResult.items[0].row, 3)
+  assert.equal(titledResult.items[0].data.phone, '0012345678')
+  assert.equal(titledResult.items[0].data.authenticator, 'fixture-authenticator')
+  assert.equal(titledResult.items[0].data.two_step_verification, 'Enabled')
+  assert.equal(titledResult.items[0].data.url, 'https://example.invalid')
+  assert.equal(titledResult.errors.length, 1)
+  assert.ok(titledResult.errors[0].startsWith('Row 4:'))
+  const correctedHeader = selectImportHeader(selectImportHeader(titled, 1), 2)
+  assert.deepEqual(correctedHeader.headers, titled.headers)
+  assert.deepEqual(correctedHeader.rows, titled.rows)
+  const boundary = (await readImportSheets('Team title\n\nname,password\n' + 'Fixture,secret\n'.repeat(1000)))[0]
+  assert.equal(boundary.headerRow, 3)
+  assert.equal(prepareImport(boundary, detectColumns(boundary.headers)).items.length, 1000)
 
   const bankSheet = (await readImportSheets('title,account no,ifsc\nPersonal,001234567890,TEST0000123'))[0]
   assert.equal(prepareImport(bankSheet, detectColumns(bankSheet.headers)).items[0].data.account_number, '001234567890')

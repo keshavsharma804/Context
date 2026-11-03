@@ -91,6 +91,8 @@ const SENSITIVE_KEYS = new Set([
   'password',
   'secret',
   'upi_pin',
+  'authenticator',
+  'two_step_verification',
 ])
 
 function formatLabel(key: string): string {
