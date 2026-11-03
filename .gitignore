@@ -4,3 +4,11 @@ __pycache__/
 *.pyc
 .env
 .env.*
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Playwright captures
+.playwright-mcp/
