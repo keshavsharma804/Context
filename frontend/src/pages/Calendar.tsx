@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'motion/react'
 import { toast } from 'sonner'
@@ -57,7 +58,7 @@ import { Button } from '@/components/ui/button'
 import { SpinnerArc } from '@/components/motion/SpinnerArc'
 import { useSound } from '@/hooks/useSound'
 import { cn } from '@/lib/utils'
-import { money } from '@/lib/format'
+import { money, parseLocalDay } from '@/lib/format'
 
 const HOURS = Array.from({ length: 15 }, (_, index) => index + 8) // 8am → 10pm
 const PX_PER_HOUR = 48
@@ -1344,11 +1345,17 @@ function DayActionModal({
 // ─── MAIN CALENDAR PAGE ──────────────────────────────────────────────────────
 
 export default function CalendarPage() {
+  const [params] = useSearchParams()
+  const selectedDate = params.get('date')
   const [view, setView] = useState<'month' | 'week'>('month')
-  const [anchor, setAnchor] = useState(() => new Date())
+  const [anchor, setAnchor] = useState(() => parseLocalDay(selectedDate) || new Date())
   const [now, setNow] = useState(() => new Date())
   const [uploading, setUploading] = useState(false)
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null)
+  const [selectedDay, setSelectedDay] = useState<Date | null>(() => parseLocalDay(selectedDate))
+  useEffect(() => {
+    const day = parseLocalDay(selectedDate)
+    if (day) { setAnchor(day); setSelectedDay(day) }
+  }, [selectedDate])
   const playClick = useSound('click')
   const reduced = useReducedMotionSafe()
 
@@ -1446,7 +1453,7 @@ export default function CalendarPage() {
           </div>
           <Skeleton className="h-8 w-32" />
         </div>
-        <Skeleton className="mt-6 h-[420px] w-full rounded-2xl" />
+        <Skeleton className="mt-6 h-[360px] w-full rounded-2xl sm:h-[420px]" />
       </div>
     )
   }
@@ -1591,7 +1598,7 @@ export default function CalendarPage() {
                       setSelectedDay(day)
                     }}
                     className={cn(
-                      'group relative min-h-[105px] sm:min-h-[115px] border-b border-r border-hairline p-2 text-left transition-all hover:bg-surface-2/80 cursor-pointer [&:nth-child(7n)]:border-r-0 flex flex-col justify-between',
+                      'group relative h-[68px] min-w-0 sm:h-auto sm:min-h-[115px] border-b border-r border-hairline p-1 sm:p-2 text-left transition-colors hover:bg-surface-2/80 cursor-pointer [&:nth-child(7n)]:border-r-0 flex flex-col justify-between',
                       !inMonth && 'bg-surface-1/25 opacity-40',
                       today && 'bg-primary/[0.08] ring-1 ring-inset ring-primary/40'
                     )}
@@ -1609,14 +1616,23 @@ export default function CalendarPage() {
                         </span>
 
                         {totalSpend > 0 && (
-                          <span className="font-mono text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1 rounded">
+                          <span className="hidden sm:inline font-mono text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1 rounded">
                             -{symbol}{totalSpend.toLocaleString()}
                           </span>
                         )}
                       </div>
 
                       {/* Content Badges */}
-                      <div className="mt-1.5 space-y-1">
+                      {totalItems > 0 && <div className="mt-2 sm:hidden" aria-label={`${totalItems} saved items. Tap to see details.`}>
+                        <div aria-hidden="true" className="flex flex-wrap items-center gap-1">
+                          {dayEvents.length > 0 && <span className="h-1 w-1 rounded-full bg-primary" />}
+                          {daySpends.length > 0 && <span className="h-1 w-1 rounded-full bg-amber-400" />}
+                          {dayDebts.length > 0 && <span className="h-1 w-1 rounded-full bg-emerald-400" />}
+                          {dayApps.length + dayInterviews.length > 0 && <span className="h-1 w-1 rounded-full bg-violet-400" />}
+                        </div>
+                        <span aria-hidden="true" className="mt-1 block text-[9px] leading-none tabular-nums text-muted-foreground">{totalItems}</span>
+                      </div>}
+                      <div className="mt-1.5 hidden space-y-1 sm:block">
                         {/* 1. Events */}
                         {dayEvents.slice(0, 2).map((event) => {
                           const category = tone(event.category)
@@ -1692,7 +1708,7 @@ export default function CalendarPage() {
                     </div>
 
                     {/* Subtle Hover Action Pill */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end">
+                    <div className="hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity justify-end">
                       <span className="text-[9px] font-semibold text-primary inline-flex items-center gap-0.5">
                         <Plus className="h-2.5 w-2.5" /> Add
                       </span>
@@ -1705,7 +1721,7 @@ export default function CalendarPage() {
 
           {/* Week View: Detailed Timeline */}
           {view === 'week' && (
-            <div className="overflow-x-auto">
+            <div className="max-h-[60dvh] overflow-auto overscroll-contain sm:max-h-none">
               <div className="min-w-[720px]">
                 {/* Day Headers with Spends & Debts chips */}
                 <div className="sticky top-0 z-20 flex border-b border-border bg-card/90 backdrop-blur">

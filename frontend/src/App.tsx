@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, MotionConfig } from "motion/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { AmbientBackground } from "./components/AmbientBackground";
@@ -9,24 +9,8 @@ import { RouteProgress } from "./components/RouteProgress";
 import Shell from "./components/Shell";
 import ThemedToaster from "./components/ThemedToaster";
 import FloatingAsk from "./components/FloatingAsk";
-import CommandPalette from "./components/CommandPalette";
-import ShortcutsOverlay from "./components/ShortcutsOverlay";
 import { TourManager } from "./components/tour";
 import Dashboard from "./pages/Dashboard";
-import Money from "./pages/Money";
-import Subscriptions from "./pages/Subscriptions";
-import Debts from "./pages/Debts";
-import Savings from "./pages/Savings";
-import Review from "./pages/Review";
-import Journal from "./pages/Journal";
-import People from "./pages/People";
-import PersonDetail from "./pages/PersonDetail";
-import Calendar from "./pages/Calendar";
-import Vault from "./pages/Vault";
-import Email from "./pages/Email";
-import Jobs from "./pages/Jobs";
-import Files from "./pages/Files";
-import Settings from "./pages/Settings";
 import AuthPage from "./pages/AuthPage";
 import { pageTransition } from "./lib/animations";
 import { preloadSounds } from "./hooks/useSound";
@@ -35,12 +19,44 @@ import { useAuthStore } from './store/auth';
 import { useUIStore } from './store/ui';
 import { lastSectionKey, safeStartPath } from './lib/start-page';
 
+const Money = lazy(() => import('./pages/Money'));
+const Subscriptions = lazy(() => import('./pages/Subscriptions'));
+const Debts = lazy(() => import('./pages/Debts'));
+const Savings = lazy(() => import('./pages/Savings'));
+const Review = lazy(() => import('./pages/Review'));
+const Journal = lazy(() => import('./pages/Journal'));
+const People = lazy(() => import('./pages/People'));
+const PersonDetail = lazy(() => import('./pages/PersonDetail'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Vault = lazy(() => import('./pages/Vault'));
+const Email = lazy(() => import('./pages/Email'));
+const Jobs = lazy(() => import('./pages/Jobs'));
+const Files = lazy(() => import('./pages/Files'));
+const Settings = lazy(() => import('./pages/Settings'));
+const GlobalSearch = lazy(() => import('./pages/GlobalSearch'));
+const NoteDetail = lazy(() => import('./pages/NoteDetail'));
+const RecordDetail = lazy(() => import('./pages/RecordDetail'));
+const QuickCapture = lazy(() => import('./components/QuickCapture'));
+const CommandPalette = lazy(() => import('./components/CommandPalette'));
+const ShortcutsOverlay = lazy(() => import('./components/ShortcutsOverlay'));
+
 function AutoThemeWatcher() {
   useAutoThemeScheduler();
   return null;
 }
 
-const queryClient = new QueryClient({
+const queryClient: QueryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onSuccess: (data, _variables, _context, mutation) => {
+      const key = mutation.options.mutationKey;
+      const captureKind = (data as { kind?: string } | undefined)?.kind;
+      const changesReminders = key?.[0] !== 'notes' && !(key?.[0] === 'capture' &&
+        (key[1] === 'preview' || !['event', 'debt', 'subscription'].includes(captureKind || '')));
+      if (key?.[0] !== 'notifications' && changesReminders) {
+        void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      }
+    },
+  }),
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
@@ -123,27 +139,38 @@ function AnimatedRoutes() {
         exit="exit"
         className="min-h-full"
       >
-        <Routes location={location}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/money" element={<Money />} />
-          <Route path="/subscriptions" element={<Subscriptions />} />
-          <Route path="/debts" element={<Debts />} />
-          <Route path="/savings" element={<Savings />} />
-          <Route path="/review" element={<Review />} />
-          <Route path="/journal" element={<Journal />} />
-          <Route path="/people" element={<People />} />
-          <Route path="/people/:name" element={<PersonDetail />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/vault" element={<Vault />} />
-          <Route path="/email" element={<Email />} />
-          <Route path="/jobs" element={<Jobs />} />
-          <Route path="/files" element={<Files />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/auth" element={<AuthPage />} />
-        </Routes>
+        <Suspense fallback={<div role="status" className="p-8 text-sm text-muted-foreground">Loading page…</div>}>
+          <Routes location={location}>
+            <Route path="/" element={<HomeEntry />} />
+            <Route path="/search" element={<GlobalSearch />} />
+            <Route path="/notes/:id" element={<NoteDetail />} />
+            <Route path="/records/:kind/:id" element={<RecordDetail />} />
+            <Route path="/money" element={<Money />} />
+            <Route path="/subscriptions" element={<Subscriptions />} />
+            <Route path="/debts" element={<Debts />} />
+            <Route path="/savings" element={<Savings />} />
+            <Route path="/review" element={<Review />} />
+            <Route path="/journal" element={<Journal />} />
+            <Route path="/people" element={<People />} />
+            <Route path="/people/:name" element={<PersonDetail />} />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/vault" element={<Vault />} />
+            <Route path="/email" element={<Email />} />
+            <Route path="/jobs" element={<Jobs />} />
+            <Route path="/files" element={<Files />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/auth" element={<AuthPage />} />
+          </Routes>
+        </Suspense>
       </motion.div>
     </AnimatePresence>
   );
+}
+
+function HomeEntry() {
+  const location = useLocation();
+  const q = new URLSearchParams(location.search).get('q');
+  return q ? <Navigate replace to={`/search?q=${encodeURIComponent(q)}`} /> : <Dashboard />;
 }
 
 const CHORDS: Record<string, string> = {
@@ -161,18 +188,22 @@ const CHORDS: Record<string, string> = {
   j: "/jobs",
   f: "/files",
   s: "/settings",
+  '/': '/search',
 };
 
 function GlobalShortcuts() {
   const navigate = useNavigate();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
+  const closeCapture = useCallback(() => setCaptureOpen(false), []);
   const gPressed = useRef(false);
   const gTimer = useRef<number | null>(null);
 
   const closeAll = () => {
     setPaletteOpen(false);
     setShortcutsOpen(false);
+    setCaptureOpen(false);
     window.dispatchEvent(new Event("context:escape"));
   };
 
@@ -197,6 +228,12 @@ function GlobalShortcuts() {
   );
 
   useHotkeys("escape", () => closeAll(), { enableOnFormTags: true });
+
+  useEffect(() => {
+    const open = () => { setPaletteOpen(false); setShortcutsOpen(false); setCaptureOpen(true); };
+    window.addEventListener('context:quick-capture', open);
+    return () => window.removeEventListener('context:quick-capture', open);
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -252,11 +289,14 @@ function GlobalShortcuts() {
 
   return (
     <>
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      <ShortcutsOverlay
-        open={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-      />
+      <Suspense fallback={null}>
+        {captureOpen && <QuickCapture onClose={closeCapture} />}
+        {paletteOpen && <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />}
+        {shortcutsOpen && <ShortcutsOverlay
+          open={shortcutsOpen}
+          onClose={() => setShortcutsOpen(false)}
+        />}
+      </Suspense>
     </>
   );
 }

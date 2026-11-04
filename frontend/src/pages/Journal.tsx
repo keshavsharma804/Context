@@ -1,6 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
+import { format } from 'date-fns'
+import { useSearchParams } from 'react-router-dom'
+import { parseLocalDay } from '@/lib/format'
 import {
   BookOpen,
   Calendar,
@@ -22,6 +25,7 @@ import {
 import { toast } from 'sonner'
 import {
   fetchJournal,
+  fetchJournalEntry,
   postJournalSave,
   deleteJournalEntry,
   type JournalEntry,
@@ -41,14 +45,18 @@ const MOODS = [
 ]
 
 const QUICK_TAGS = ['productive', 'coding', 'health', 'reading', 'family', 'creative', 'rest', 'focus']
+const EMPTY_ENTRIES: JournalEntry[] = []
 
 export default function Journal() {
+  const [params] = useSearchParams()
+  const requestedDate = params.get('date')
   const queryClient = useQueryClient()
   const playClick = useSound('click')
   const playChime = useSound('chime')
 
-  const todayIso = new Date().toISOString().slice(0, 10)
-  const [selectedDate, setSelectedDate] = useState(todayIso)
+  const todayIso = format(new Date(), 'yyyy-MM-dd')
+  const [selectedDate, setSelectedDate] = useState(() => parseLocalDay(requestedDate) ? requestedDate! : todayIso)
+  useEffect(() => { if (parseLocalDay(requestedDate)) setSelectedDate(requestedDate!) }, [requestedDate])
 
   // Editor states
   const [mood, setMood] = useState(4)
@@ -69,11 +77,12 @@ export default function Journal() {
   })
 
   const matrix = data?.matrix
-  const entries = data?.entries ?? []
+  const entries = data?.entries ?? EMPTY_ENTRIES
+  const entryQuery = useQuery({ queryKey: ['journal-entry', selectedDate], queryFn: () => fetchJournalEntry(selectedDate) })
 
   // Load selected date entry if exists
   useEffect(() => {
-    const existing = entries.find((e) => e.date === selectedDate)
+    const existing = entryQuery.data ? entryQuery.data.entry : entries.find((e) => e.date === selectedDate)
     if (existing) {
       setMood(existing.mood)
       setHeadline(existing.headline || '')
@@ -85,13 +94,14 @@ export default function Journal() {
       setContent('')
       setTags([])
     }
-  }, [selectedDate, entries])
+  }, [selectedDate, entries, entryQuery.data])
 
   // Save Mutation
   const saveMutation = useMutation({
     mutationFn: (payload: { date: string; mood: number; headline: string; content: string; tags: string[] }) =>
       postJournalSave(payload),
     onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['journal-entry'] })
       queryClient.invalidateQueries({ queryKey: ['journal'] })
       queryClient.invalidateQueries({ queryKey: ['home'] })
       playChime()
@@ -106,6 +116,7 @@ export default function Journal() {
   const deleteMutation = useMutation({
     mutationFn: (dateStr: string) => deleteJournalEntry(dateStr),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['journal-entry'] })
       queryClient.invalidateQueries({ queryKey: ['journal'] })
       toast.success('Journal entry deleted')
     },

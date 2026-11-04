@@ -1,8 +1,12 @@
 /* ─── The Chronosphere (Planetary Horizon & Atmospheric Orbit) ───────────────── */
 
-.chronosphere-card {
+.chronosphere-container {
+  container-type: inline-size;
   --px: 0;
   --py: 0;
+}
+
+.chronosphere-card {
   isolation: isolate;
   background: radial-gradient(120% 90% at 50% 10%, var(--chrono-space-top), var(--chrono-space-mid) 48%, var(--chrono-space-bottom) 85%);
   min-height: 480px;
@@ -622,6 +626,33 @@
 @keyframes shani-heart {
   0% { opacity: 1; transform: translate3d(0, 0, 0) scale(0.6); }
   100% { opacity: 0; transform: translate3d(var(--dx, 0), -36px, 0) scale(1.25); }
+}
+
+.chronosphere-container[data-active="false"] * {
+  animation-play-state: paused !important;
+}
+
+/* Keep the scene on touch devices without continuously animating filtered SVGs. */
+@media (hover: none), (pointer: coarse) {
+  .chrono-earth-clouds,
+  .chrono-earth-glint,
+  .chrono-aurora-ribbon,
+  .chrono-sun-rays,
+  .chrono-star,
+  [data-phase="night"] .chrono-meteor {
+    animation: none;
+  }
+}
+
+/* Use the card's available width, including beside the tablet/desktop rail. */
+@container (max-width: 760px) {
+  .chrono-satellite-wrap { top: 18px; left: 20px; }
+  .chrono-shani-wrap { top: 5px; right: 20px; }
+  .chrono-phase-pick { top: 58px; left: 20px; right: 20px; max-width: 300px; }
+  .chrono-phase-pick button { flex: 1; min-width: 0; min-height: 32px; padding: 4px 5px; font-size: 10px; }
+  .chrono-copy { padding: 116px 20px 0; }
+  .chrono-eyebrow { flex-wrap: wrap; gap: 6px; font-size: 10px; }
+  .chrono-line { max-width: 32ch; }
 }
 
 @media (prefers-reduced-motion: reduce) {

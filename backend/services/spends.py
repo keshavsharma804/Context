@@ -122,7 +122,7 @@ def period_range(period="month"):
     return start.isoformat(), today.isoformat()
 
 
-def summary(period="month"):
+def summary(period="month", include_details=True):
     start, end = period_range(period)
     conn = get_conn()
     total = conn.execute(
@@ -138,12 +138,10 @@ def summary(period="month"):
         (start, end),
     ).fetchall()
     budgets = conn.execute('SELECT category, amount FROM context.budgets').fetchall()
+    spent_by_category = {row["category"]: row["total"] for row in by_cat}
     budget_status = []
     for b in budgets:
-        spent = conn.execute(
-            'SELECT COALESCE(SUM(amount), 0) FROM context.spends WHERE category = %s AND spent_at BETWEEN %s AND %s',
-            (b["category"], start, end),
-        ).fetchone()[0]
+        spent = spent_by_category.get(b["category"], 0)
         budget_status.append({
             "category": b["category"],
             "budget": b["amount"],
@@ -153,7 +151,7 @@ def summary(period="month"):
             "remaining": round(max(0, b["amount"] - spent), 2),
         })
     conn.close()
-    return {
+    result = {
         "period": period,
         "start": start,
         "end": end,
@@ -162,9 +160,11 @@ def summary(period="month"):
         "top_merchants": [dict(r) for r in top_merchants],
         "budgets": budget_status,
         "compare": compare_periods(period),
-        "transactions": transactions_in_range(start, end),
-        "trend": daily_trend(14),
     }
+    if include_details:
+        result["transactions"] = transactions_in_range(start, end)
+        result["trend"] = daily_trend(14)
+    return result
 
 
 def transactions_in_range(start, end, limit=250):
@@ -231,8 +231,9 @@ def compare_periods(period="week"):
     }
 
 
-def detect_leaks():
-    s = summary("month")
+def detect_leaks(s=None):
+    if s is None:
+        s = summary("month", include_details=False)
     leaks = []
     for c in s["by_category"]:
         if c["total"] > 1000 and c["count"] >= 5:
@@ -250,8 +251,8 @@ def detect_leaks():
 
 
 def spend_brief():
-    week = summary("week")
-    month = summary("month")
+    week = summary("week", include_details=False)
+    month = summary("month", include_details=False)
     categories = sorted(
         {c["category"] for c in month["by_category"]}
         | {b["category"] for b in month["budgets"]}
@@ -261,8 +262,8 @@ def spend_brief():
         "week_by_category": week["by_category"][:5],
         "month_total": month["total"],
         "budgets": month["budgets"],
-        "compare": compare_periods("week"),
-        "leaks": detect_leaks(),
+        "compare": week["compare"],
+        "leaks": detect_leaks(month),
         # Real categories present in the database, so the quick-add form never
         # ships a hardcoded category list.
         "categories": categories,

@@ -16,7 +16,7 @@ export function TourManager({ ready = true, children }: { ready?: boolean; child
 
   // Keep one opaque loader mounted while the session resolves, even after 100%.
   useEffect(() => {
-    if (phase !== 'loading' || !loaderComplete || !ready) return
+    if (phase !== 'loading' || !ready || (needsTour && !loaderComplete)) return
     setPhase(needsTour ? 'tour' : 'idle')
     if (!needsTour) setBootComplete(true)
   }, [phase, loaderComplete, ready, needsTour])
@@ -55,10 +55,10 @@ export function TourManager({ ready = true, children }: { ready?: boolean; child
 
   return (
     <>
-      {bootComplete && ready && children}
+      {ready && (bootComplete || !needsTour) && children}
       {!bootComplete && <div aria-hidden className="fixed inset-0 bg-[#090a0d]" />}
       <AnimatePresence>
-        {phase === 'loading' && <FullScreenLoader onComplete={finishLoader} durationMs={needsTour ? 2000 : 350} />}
+        {phase === 'loading' && (!ready || needsTour) && <FullScreenLoader onComplete={finishLoader} durationMs={needsTour ? 2000 : 350} />}
       </AnimatePresence>
       <AnimatePresence>
         {phase === 'tour' && <ProductTourModal open onClose={handleTourClose} />}

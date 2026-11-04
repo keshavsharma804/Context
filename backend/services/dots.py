@@ -7,9 +7,11 @@ for _d in (_backend_dir, os.path.join(_backend_dir, "core"), os.path.join(_backe
         sys.path.insert(0, _d)
 
 import re
-from collections import Counter
+from collections import Counter, OrderedDict
 from datetime import datetime
+from threading import Lock
 from core.db import get_conn
+from core.user_context import current_user_id
 from core.config import (
     FORGOTTEN_CATEGORIES, FORGOTTEN_MAX_AGE_DAYS, FORGOTTEN_MIN_SIZE_KB,
     FORGOTTEN_LIMIT,
@@ -83,14 +85,31 @@ def _ignored_paths():
     return {r["path"] for r in rows}
 
 
-_CONNECTIONS_CACHE = {"data": None, "ts": 0}
+_CONNECTIONS_CACHE = OrderedDict()
+_CONNECTIONS_CACHE_LOCK = Lock()
+_CONNECTIONS_CACHE_LIMIT = 128
+
+
+def _cache_connections(key, results, now):
+    # Keep account results isolated and bound process memory under many users.
+    if key[0] is None:
+        return
+    with _CONNECTIONS_CACHE_LOCK:
+        _CONNECTIONS_CACHE[key] = (now, results)
+        _CONNECTIONS_CACHE.move_to_end(key)
+        while len(_CONNECTIONS_CACHE) > _CONNECTIONS_CACHE_LIMIT:
+            _CONNECTIONS_CACHE.popitem(last=False)
 
 def find_connections(limit=5, min_score=0.6):
     import time
     from collections import defaultdict
-    now = time.time()
-    if _CONNECTIONS_CACHE["data"] is not None and (now - _CONNECTIONS_CACHE["ts"]) < 60:
-        return _CONNECTIONS_CACHE["data"][:limit]
+    now = time.monotonic()
+    cache_key = (current_user_id.get(), min_score)
+    with _CONNECTIONS_CACHE_LOCK:
+        cached = _CONNECTIONS_CACHE.get(cache_key) if cache_key[0] is not None else None
+        if cached is not None and now - cached[0] < 60:
+            _CONNECTIONS_CACHE.move_to_end(cache_key)
+            return cached[1][:limit]
 
     conn = get_conn()
     ignored = _ignored_paths()
@@ -105,8 +124,7 @@ def find_connections(limit=5, min_score=0.6):
     history = [h for h in raw_history if _is_good_history(h)]
     history_tokens = [(h, t) for h, t in [(h, _tokens(h["title"] or "")) for h in history] if len(t) >= 3]
     if not history_tokens:
-        _CONNECTIONS_CACHE["data"] = []
-        _CONNECTIONS_CACHE["ts"] = now
+        _cache_connections(cache_key, [], now)
         return []
 
     word_freq = Counter()
@@ -161,8 +179,7 @@ def find_connections(limit=5, min_score=0.6):
             results.append(best)
 
     results.sort(key=lambda x: -x["score"])
-    _CONNECTIONS_CACHE["data"] = results
-    _CONNECTIONS_CACHE["ts"] = now
+    _cache_connections(cache_key, results, now)
     return results[:limit]
 
 

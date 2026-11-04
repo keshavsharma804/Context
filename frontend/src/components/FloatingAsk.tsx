@@ -266,6 +266,11 @@ export default function FloatingAsk() {
 
   useEffect(() => {
     if (!isOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (panelRef.current?.contains(event.target as Node)) return
+      setMode('closed')
+      setConfirmClear(false)
+    }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
@@ -273,8 +278,12 @@ export default function FloatingAsk() {
         setConfirmClear(false)
       }
     }
+    document.addEventListener('pointerdown', onPointerDown, true)
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      window.removeEventListener('keydown', onKeyDown)
+    }
   }, [isOpen])
 
   const openInput = () => {

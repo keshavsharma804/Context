@@ -82,12 +82,56 @@ try {
   const previewClient = new QueryClient({ defaultOptions: { queries: { enabled: false } } })
   const preview = renderToStaticMarkup(React.createElement(QueryClientProvider, { client: previewClient },
     React.createElement(MemoryRouter, null, React.createElement(Dashboard, { preview: true }))))
-  assert.ok(preview.includes('Dashboard preview'))
+  assert.ok(preview.includes('Today preview'))
   assert.ok(!preview.includes('Couldn&#x27;t reach your context'))
-  assert.ok(preview.includes('Daily'))
-  assert.ok(preview.includes('No expenses this week'))
-  assert.ok(preview.includes('Add expense'))
-  assert.ok(preview.includes('px-0 pt-0'))
+  assert.ok(preview.includes('Your schedule'))
+  assert.ok(preview.includes('Due &amp; coming up'))
+  assert.ok(preview.includes('Log expense'))
+  assert.ok(preview.includes('ORBITAL SYNC'))
+  assert.ok(preview.indexOf('ORBITAL SYNC') < preview.indexOf('id="today-heading"'))
+  assert.ok(!preview.includes('Financial Health &amp; Pulse'))
+  assert.ok(!preview.includes('This month'))
+  const { default: TodayView } = await server.ssrLoadModule('/src/components/dashboard/TodayView.tsx')
+  const todayView = renderToStaticMarkup(React.createElement(QueryClientProvider, { client: previewClient },
+    React.createElement(MemoryRouter, null, React.createElement(TodayView, { date: '2026-11-04', data: {
+      ok: true, date: '2026-11-04',
+      schedule: [{ id: 'event:1', title: 'Design review', start_at: '2026-11-04T10:00', end_at: '2026-11-04T11:00', kind: 'event', location: 'Online' }],
+      subscriptions: [{ id: 1, name: 'Workspace', amount: 499, next_renewal: '2026-11-04' }],
+      debts: [{ id: 2, person: 'Riya', direction: 'borrowed', amount: 100, due_date: '2026-11-01' }],
+      emails: [{ id: 3, from_name: 'Sam', subject: 'Review proposal', received_at: '2026-11-04T08:00' }],
+      contacts: [{ id: 4, name: 'Alex & Co', last_contact: '2026-10-01' }],
+      journal: { mood: 4, headline: 'A good day' },
+    } }))))
+  for (const text of ['Design review', 'Due today', 'Overdue', 'You owe', 'Review proposal', 'You checked in today', 'A good day']) {
+    assert.ok(todayView.includes(text), `Today content missing: ${text}`)
+  }
+  assert.ok(todayView.includes('/people/Alex%20%26%20Co'))
+  assert.ok(todayView.includes('Mark Alex &amp; Co as contacted'))
+  const { default: ReminderItem } = await server.ssrLoadModule('/src/components/notifications/ReminderItem.tsx')
+  const reminderMarkup = renderToStaticMarkup(React.createElement(MemoryRouter, null,
+    React.createElement(ReminderItem, {
+      item: { id: 'a'.repeat(64), kind: 'interview', title: 'Acme interview', body: 'Starts in 30 min', due_at: '2026-11-04T09:30:00Z', href: '/jobs', severity: 'warning', read: false },
+      pending: false, onAction: () => {},
+    })))
+  for (const text of ['Acme interview', 'Snooze', 'Dismiss Acme interview', 'Mark Acme interview as read', 'href="/jobs"']) {
+    assert.ok(reminderMarkup.includes(text), `Reminder action missing: ${text}`)
+  }
+  assert.ok(preview.includes('Smart reminders'))
+  const { default: GlobalSearch } = await server.ssrLoadModule('/src/pages/GlobalSearch.tsx')
+  const searchClient = new QueryClient()
+  searchClient.setQueryData(['global-search', 'lunch', 'all'], { ok: true, q: 'lunch', kind: 'all', has_more: false, results: [
+    { id: '12', kind: 'expense', title: '<script>unsafe</script>', snippet: 'Lunch at cafe', amount: 250, occurred_at: '2026-11-04', href: '/records/expense/12' },
+  ] })
+  const globalResults = renderToStaticMarkup(React.createElement(QueryClientProvider, { client: searchClient },
+    React.createElement(MemoryRouter, { initialEntries: ['/search?q=lunch'] }, React.createElement(GlobalSearch))))
+  assert.ok(globalResults.includes('Result type'))
+  assert.ok(globalResults.includes('Lunch at cafe'))
+  assert.ok(globalResults.includes('/records/expense/12'))
+  assert.ok(globalResults.includes('&lt;script&gt;unsafe&lt;/script&gt;'))
+  assert.ok(!globalResults.includes('<script>'))
+  const { parseLocalDay } = await server.ssrLoadModule('/src/lib/format.ts')
+  assert.ok(parseLocalDay('2024-02-29'))
+  assert.equal(parseLocalDay('2026-02-31'), null)
   const money = renderToStaticMarkup(React.createElement(QueryClientProvider, { client: previewClient },
     React.createElement(MemoryRouter, null, React.createElement(MoneyCard, { spend: {
       week_total: 250, month_total: 1000, week_by_category: [{ category: 'food', total: 250 }],
@@ -128,13 +172,54 @@ try {
   assert.ok(!renderStartup(true).includes('Initializing Context'))
   localStorage.removeItem('context:tour_completed')
   globalThis.document = { documentElement: { dataset: {}, style: {} }, cookie: '' }
-  const { postAuthSignupCode } = await server.ssrLoadModule('/src/lib/api.ts')
+  const { postAuthSignupCode, fetchDashboard, fetchHome, fetchToday, fetchNotifications, postNotificationAction, postNotificationsReadAll, postCapturePreview, postCaptureSave, fetchGlobalSearch } = await server.ssrLoadModule('/src/lib/api.ts')
   const originalFetch = globalThis.fetch
   try {
     globalThis.fetch = async () => new Response('Internal Server Error', { status: 500 })
     await assert.rejects(postAuthSignupCode('fixture@example.invalid'), /HTTP 500/)
     globalThis.fetch = async () => Response.json({ ok: false, error: 'Account storage is temporarily unavailable.', reference: 'fixture-reference' }, { status: 503 })
     await assert.rejects(postAuthSignupCode('fixture@example.invalid'), /fixture-reference/)
+    const requests = []
+    globalThis.fetch = async (url, options) => {
+      requests.push({ url: new URL(url, 'http://fixture.invalid'), options })
+      return Response.json({ ok: true })
+    }
+    await fetchDashboard('rent & bills?')
+    await fetchHome('rent & bills?')
+    assert.equal(requests[0].url.searchParams.get('compact'), 'true')
+    assert.equal(requests[1].url.searchParams.has('compact'), false)
+    for (const request of requests) {
+      assert.equal(request.url.searchParams.get('q'), 'rent & bills?')
+      assert.equal(request.options.credentials, 'include')
+    }
+    await fetchToday('2026-11-04')
+    assert.equal(requests[2].url.pathname, '/api/today')
+    assert.equal(requests[2].url.searchParams.get('day'), '2026-11-04')
+    assert.equal(requests[2].options.credentials, 'include')
+    await fetchNotifications('Asia/Kolkata')
+    assert.equal(requests[3].url.searchParams.get('timezone'), 'Asia/Kolkata')
+    document.cookie = 'context_csrf=fixture-csrf'
+    await postNotificationAction('a'.repeat(64), 'snooze', 'Asia/Kolkata', 60)
+    assert.equal(requests[4].options.headers.get('X-CSRF-Token'), 'fixture-csrf')
+    assert.deepEqual(JSON.parse(requests[4].options.body), { action: 'snooze', timezone: 'Asia/Kolkata', minutes: 60 })
+    await postNotificationsReadAll('Asia/Kolkata')
+    assert.equal(requests[5].url.pathname, '/api/notifications/read-all')
+    assert.equal(requests[5].options.method, 'POST')
+    await postCapturePreview('spent 250 on lunch', 'Asia/Kolkata')
+    assert.equal(requests[6].url.pathname, '/api/capture/preview')
+    const draft = { kind: 'expense', amount: 250, date: '2026-11-04' }
+    const requestId = '00000000-0000-4000-8000-000000000001'
+    await postCaptureSave(draft, requestId)
+    assert.equal(JSON.parse(requests[7].options.body).request_id, requestId)
+    assert.equal(requests[7].options.headers.get('X-CSRF-Token'), 'fixture-csrf')
+    const controller = new AbortController()
+    await fetchGlobalSearch('lunch & coffee', 'expense', controller.signal)
+    assert.equal(requests[8].url.searchParams.get('q'), 'lunch & coffee')
+    assert.equal(requests[8].url.searchParams.get('kind'), 'expense')
+    assert.equal(requests[8].options.signal, controller.signal)
+    globalThis.fetch = async () => Response.json({ detail: [{ msg: 'Choose a start time' }] }, { status: 422 })
+    await assert.rejects(postCaptureSave(draft, requestId), /Choose a start time/)
+    document.cookie = ''
   } finally { globalThis.fetch = originalFetch }
   for (const size of ['fit', 'compact', 'default', 'large']) {
     useUIStore.getState().setInterfaceSize(size)

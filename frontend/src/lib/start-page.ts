@@ -1,4 +1,4 @@
-const sections = new Set(['money', 'subscriptions', 'debts', 'savings', 'review', 'journal', 'people', 'calendar', 'vault', 'email', 'jobs', 'files', 'settings'])
+const sections = new Set(['money', 'subscriptions', 'debts', 'savings', 'review', 'journal', 'people', 'calendar', 'vault', 'email', 'jobs', 'files', 'settings', 'search', 'notes', 'records'])
 
 export function safeStartPath(value: string | null): string {
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) return '/'

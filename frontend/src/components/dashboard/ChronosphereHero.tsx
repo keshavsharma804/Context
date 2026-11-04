@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, type MouseEvent } from 'react'
+import { memo, useState, useEffect, useRef, useMemo, type MouseEvent } from 'react'
 import { useColorTheme } from '@/hooks/useColorTheme'
 import { hexToHsl } from '@/lib/themes'
 import { getDayPhase, type DayPhase } from '@/hooks/useAutoThemeScheduler'
@@ -61,17 +61,43 @@ const CITY_CLUSTERS_REAL = [
   { cx: 1300, cy: 170, r: 3.0 },
 ]
 
-export default function ChronosphereHero({ userName, className = '' }: ChronosphereHeroProps) {
+function ChronosphereHero({ userName, className = '' }: ChronosphereHeroProps) {
   const { theme } = useColorTheme()
   const [phaseMode, setPhaseMode] = useState<PhaseSelection>('live')
   const [livePhase, setLivePhase] = useState<DayPhase>(() => getDayPhase())
-  const [mouseOffsets, setMouseOffsets] = useState({ px: 0, py: 0 })
+  const parallaxFrame = useRef<number | null>(null)
+  const pointer = useRef({ px: 0, py: 0 })
+  const parallaxEnabled = useRef(false)
   const [telemetryOpen, setTelemetryOpen] = useState(false)
   const [shaniAct, setShaniAct] = useState<string>('')
   const [shaniSay, setShaniSay] = useState<string>('')
   const [shaniHearts, setShaniHearts] = useState<Array<{ id: number; dx: number }>>([])
   const shaniTimerRef = useRef<number | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const card = cardRef.current
+    if (!card) return
+    const media = window.matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)')
+    const updatePointer = () => {
+      parallaxEnabled.current = media.matches
+      if (!media.matches) { card.style.setProperty('--px', '0'); card.style.setProperty('--py', '0') }
+    }
+    updatePointer()
+    media.addEventListener('change', updatePointer)
+    let visible = true
+    const updateActivity = () => { card.dataset.active = String(visible && !document.hidden) }
+    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; updateActivity() })
+    observer.observe(card)
+    document.addEventListener('visibilitychange', updateActivity)
+    updateActivity()
+    return () => {
+      observer.disconnect()
+      media.removeEventListener('change', updatePointer)
+      document.removeEventListener('visibilitychange', updateActivity)
+      if (parallaxFrame.current !== null) cancelAnimationFrame(parallaxFrame.current)
+    }
+  }, [])
 
   // Real-time clock phase ticker
   useEffect(() => {
@@ -91,18 +117,27 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
 
   // Subtle 3D perspective shift on mouse move
   const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return
+    if (!cardRef.current || !parallaxEnabled.current) return
     const rect = cardRef.current.getBoundingClientRect()
     const x = (e.clientX - rect.left) / rect.width
     const y = (e.clientY - rect.top) / rect.height
-    setMouseOffsets({
+    pointer.current = {
       px: Math.max(-1, Math.min(1, x * 2 - 1)),
       py: Math.max(-1, Math.min(1, y * 2 - 1)),
+    }
+    if (parallaxFrame.current !== null) return
+    parallaxFrame.current = requestAnimationFrame(() => {
+      parallaxFrame.current = null
+      cardRef.current?.style.setProperty('--px', String(pointer.current.px))
+      cardRef.current?.style.setProperty('--py', String(pointer.current.py))
     })
   }
 
   const handleMouseLeave = () => {
-    setMouseOffsets({ px: 0, py: 0 })
+    if (parallaxFrame.current !== null) cancelAnimationFrame(parallaxFrame.current)
+    parallaxFrame.current = null
+    cardRef.current?.style.setProperty('--px', '0')
+    cardRef.current?.style.setProperty('--py', '0')
   }
 
   const handleShaniClick = () => {
@@ -212,19 +247,17 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
       '--chrono-sun-core': sunCore,
       '--chrono-sun-glow': sunGlow,
       '--chrono-ink': ink,
-      '--px': mouseOffsets.px,
-      '--py': mouseOffsets.py,
       '--sun-left': sunPos.left,
       '--sun-top': sunPos.top,
     } as React.CSSProperties
-  }, [theme, currentPhase, mouseOffsets])
+  }, [theme, currentPhase])
 
   return (
     <div
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`relative w-full select-none ${className}`}
+      className={`chronosphere-container relative w-full select-none ${className}`}
     >
       <div className="chronosphere-card" data-phase={currentPhase} style={chronoStyles}>
         {/* Deep Space Layer with Nebula & Stars */}
@@ -689,4 +722,6 @@ export default function ChronosphereHero({ userName, className = '' }: Chronosph
     </div>
   )
 }
+
+export default memo(ChronosphereHero)
 

@@ -24,7 +24,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok || !json?.ok) {
     const reference = json?.reference ? ` (reference: ${json.reference})` : ''
-    throw new Error((json?.error ?? `Server returned HTTP ${res.status}`) + reference)
+    const detail = typeof json?.detail === 'string' ? json.detail : Array.isArray(json?.detail)
+      ? json.detail.slice(0, 3).map((issue: { msg?: string }) => issue.msg).filter(Boolean).join('; ') : undefined
+    throw new Error((json?.error ?? detail ?? `Server returned HTTP ${res.status}`) + reference)
   }
   return json as T
 }
@@ -65,6 +67,94 @@ export interface HomeData {
 
 export const fetchHome = (q = '') =>
   apiFetch<HomeData>(`/home${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+
+export type DashboardData = Omit<HomeData, 'job' | 'people'> & { job: null; people: null }
+export const fetchDashboard = (q = '') =>
+  apiFetch<DashboardData>(`/home?compact=true${q ? `&q=${encodeURIComponent(q)}` : ''}`)
+
+export interface TodayData {
+  ok: boolean
+  date: string
+  schedule: { id: string; title: string; start_at: string; end_at: string | null; location: string | null; kind: 'event' | 'interview' }[]
+  subscriptions: { id: number; name: string; amount: number; next_renewal: string }[]
+  debts: { id: number; person: string; direction: 'borrowed' | 'lent'; amount: number; due_date: string }[]
+  emails: { id: number; from_name: string | null; from_addr: string | null; subject: string | null; received_at: string }[]
+  contacts: { id: number; name: string; last_contact: string }[]
+  journal: { mood: number; headline: string | null } | null
+}
+
+export const fetchToday = (day: string) => apiFetch<TodayData>(`/today?day=${encodeURIComponent(day)}`)
+
+export interface Reminder {
+  id: string
+  kind: 'event' | 'interview' | 'subscription' | 'debt'
+  title: string
+  body: string
+  due_at: string
+  href: string
+  severity: 'info' | 'warning' | 'danger'
+  read: boolean
+  amount?: number
+}
+
+export interface NotificationsData {
+  ok: boolean
+  notifications: Reminder[]
+  unread_count: number
+  checked_at: string
+  timezone: string
+}
+
+export const fetchNotifications = (timezone: string) =>
+  apiFetch<NotificationsData>(`/notifications?timezone=${encodeURIComponent(timezone)}`)
+
+export const postNotificationAction = (id: string, action: 'read' | 'snooze' | 'dismiss', timezone: string, minutes = 15) =>
+  apiFetch<{ ok: boolean }>(`/notifications/${encodeURIComponent(id)}`, {
+    method: 'POST', body: JSON.stringify({ action, timezone, minutes }),
+  })
+
+export const postNotificationsReadAll = (timezone: string) =>
+  apiFetch<{ ok: boolean; updated: number }>('/notifications/read-all', {
+    method: 'POST', body: JSON.stringify({ timezone }),
+  })
+
+export type CaptureKind = 'expense' | 'event' | 'note' | 'debt' | 'subscription' | 'contact'
+export interface CaptureDraft {
+  kind: CaptureKind
+  title?: string
+  content?: string
+  amount?: number | null
+  merchant?: string
+  category?: string
+  date: string
+  start_at?: string | null
+  end_at?: string | null
+  location?: string
+  company?: string
+  person?: string
+  direction?: 'lent' | 'borrowed'
+  billing_cycle?: 'monthly' | 'yearly' | 'quarterly' | 'weekly'
+  due_date?: string | null
+}
+export const postCapturePreview = (text: string, timezone: string) =>
+  apiFetch<{ ok: boolean; draft: CaptureDraft; warnings: string[] }>('/capture/preview', { method: 'POST', body: JSON.stringify({ text, timezone }) })
+export const postCaptureSave = (draft: CaptureDraft, request_id: string) =>
+  apiFetch<{ ok: boolean; kind: CaptureKind; id: number; href: string; message: string }>('/capture/save', { method: 'POST', body: JSON.stringify({ draft, request_id }) })
+
+export interface GlobalSearchResult {
+  id: string
+  kind: string
+  title: string
+  snippet: string
+  occurred_at: string | null
+  amount: number | null
+  href: string
+}
+export const fetchGlobalSearch = (q: string, kind = 'all', signal?: AbortSignal) =>
+  apiFetch<{ ok: boolean; q: string; kind: string; results: GlobalSearchResult[]; has_more: boolean }>(`/search/global?q=${encodeURIComponent(q)}&kind=${encodeURIComponent(kind)}`, { signal })
+export const fetchNote = (id: string) => apiFetch<{ ok: boolean; note: { id: number; content: string; created_at: string } }>(`/notes/${encodeURIComponent(id)}`)
+export const putNote = (id: string, content: string) => apiFetch<{ ok: boolean }>(`/notes/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ content }) })
+export const fetchSearchRecord = (kind: string, id: string) => apiFetch<{ ok: boolean; kind: string; record: Record<string, string | number | null> }>(`/search/record/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`)
 
 // ─── Ask ─────────────────────────────────────────────────────────────────────
 

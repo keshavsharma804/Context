@@ -35,6 +35,7 @@ import traceback
 
 
 from datetime import datetime
+from datetime import date as CalendarDate
 
 
 
@@ -68,6 +69,12 @@ from services.email_otp import EmailOTPError, send_signup_code, verify_signup_co
 
 
 from core.config import PORT
+from services.today import today_brief
+from services.reminders import get_reminders, update_reminder, mark_all_read
+from typing import Literal
+from uuid import UUID
+from services.quick_capture import CaptureDraft, preview_capture, save_capture
+from services.global_search import search_records, get_note, update_note, get_search_record
 
 
 
@@ -424,27 +431,20 @@ def err(msg: str, status: int = 400):
 
 
 
-def _db_counts():
-
-
-
-    conn = get_conn()
-
-
-
-    counts = {k: conn.execute(f'SELECT COUNT(*) FROM context.{k}').fetchone()[0]
-
-
-
-              for k in ["files", "history", "events", "emails", "chunks", "people", "spends"]}
-
-
-
-    conn.close()
-
-
-
-    return counts
+def _db_counts(conn=None):
+    owns_connection = conn is None
+    if owns_connection:
+        conn = get_conn()
+    try:
+        # Table names are fixed here, never supplied by a request.
+        tables = ("files", "history", "events", "emails", "chunks", "people", "spends")
+        query = "SELECT " + ", ".join(
+            f'(SELECT COUNT(*) FROM context.{table}) AS {table}' for table in tables
+        )
+        return dict(conn.execute(query).fetchone())
+    finally:
+        if owns_connection:
+            conn.close()
 
 
 
@@ -472,11 +472,89 @@ def _db_counts():
 
 
 
+@router.get("/today")
+def api_today(day: Optional[CalendarDate] = None):
+    return ok(**today_brief(day or CalendarDate.today()))
+
+
+class NotificationActionBody(BaseModel):
+    action: Literal['read', 'snooze', 'dismiss']
+    timezone: str = Field(default='UTC', max_length=80)
+    minutes: int = Field(default=15, ge=5, le=10080)
+
+
+class NotificationReadAllBody(BaseModel):
+    timezone: str = Field(default='UTC', max_length=80)
+
+
+@router.get('/notifications')
+def api_notifications(timezone: str = 'UTC'):
+    return ok(**get_reminders(timezone))
+
+
+class CapturePreviewBody(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    timezone: str = Field(default='UTC', max_length=80)
+
+
+class CaptureSaveBody(BaseModel):
+    request_id: UUID
+    draft: CaptureDraft
+
+
+class NoteUpdateBody(BaseModel):
+    content: str = Field(min_length=1, max_length=10000)
+
+
+@router.post('/capture/preview')
+def api_capture_preview(body: CapturePreviewBody):
+    return ok(**preview_capture(body.text, body.timezone))
+
+
+@router.post('/capture/save')
+def api_capture_save(body: CaptureSaveBody):
+    return ok(**save_capture(body.draft, body.request_id))
+
+
+@router.get('/search/global')
+def api_global_search(q: str = '', kind: str = 'all'):
+    return ok(**search_records(q, kind))
+
+
+@router.get('/notes/{note_id}')
+def api_note_get(note_id: int):
+    return ok(note=get_note(note_id))
+
+
+@router.get('/search/record/{kind}/{record_id}')
+def api_search_record(kind: str, record_id: int):
+    return ok(**get_search_record(kind, record_id))
+
+
+@router.put('/notes/{note_id}')
+def api_note_update(note_id: int, body: NoteUpdateBody):
+    if not body.content.strip():
+        return err('Enter a note')
+    update_note(note_id, body.content.strip())
+    return ok()
+
+
+@router.post('/notifications/read-all')
+def api_notifications_read_all(body: NotificationReadAllBody):
+    return ok(updated=mark_all_read(body.timezone))
+
+
+@router.post('/notifications/{reminder_id}')
+def api_notification_action(reminder_id: str, body: NotificationActionBody):
+    update_reminder(reminder_id, body.action, body.timezone, body.minutes)
+    return ok()
+
+
 @router.get("/home")
 
 
 
-def api_home(q: str = ""):
+def api_home(q: str = "", compact: bool = False):
 
 
 
@@ -488,7 +566,9 @@ def api_home(q: str = ""):
 
 
 
-        if q:
+        if compact and not q:
+            file_rows, hist_rows = [], []
+        elif q:
 
 
 
@@ -544,11 +624,7 @@ def api_home(q: str = ""):
 
 
 
-        counts = {k: conn.execute(f'SELECT COUNT(*) FROM context.{k}').fetchone()[0]
-
-
-
-                  for k in ["files", "history", "events", "emails", "chunks", "people", "spends"]}
+        counts = _db_counts(conn)
 
 
 
@@ -580,15 +656,15 @@ def api_home(q: str = ""):
 
 
 
-            forgotten=find_forgotten_files(),
+            forgotten=[] if compact else find_forgotten_files(),
 
 
 
-            connections=find_connections(),
+            connections=[] if compact else find_connections(),
 
 
 
-            job=job_search_brief(),
+            job=None if compact else job_search_brief(),
 
 
 
@@ -600,7 +676,7 @@ def api_home(q: str = ""):
 
 
 
-            activity=recent_activity(15),
+            activity=[] if compact else recent_activity(15),
 
 
 
@@ -608,7 +684,7 @@ def api_home(q: str = ""):
 
 
 
-            people=people_brief(),
+            people=None if compact else people_brief(),
 
 
 
@@ -1137,7 +1213,7 @@ def api_calendar(start: str = "", end: str = ""):
 
 
 
-            brief["collisions"] = collisions_in_range(start, end)
+            brief["collisions"] = collisions_in_range(start, end, events=brief["events"])
 
 
 
@@ -5194,7 +5270,7 @@ EXPORT_TABLES = [
 
 
 
-    "patterns_detected", "manual", "activity_log", "habits", "habit_logs",
+    "patterns_detected", "manual", "activity_log", "habits", "habit_logs", "reminder_states", "capture_receipts",
 
 
 
@@ -5222,7 +5298,7 @@ CLEAR_TABLES = [
 
 
 
-    "habit_logs", "habits", "vault_config", "vault_items",
+    "habit_logs", "habits", "vault_config", "vault_items", "reminder_states", "capture_receipts",
 
 
 

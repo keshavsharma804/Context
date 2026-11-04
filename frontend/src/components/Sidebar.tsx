@@ -6,7 +6,7 @@ import {
   Calendar,
   FileText,
   HandCoins,
-  LayoutDashboard,
+  Sunrise,
   Lock,
   LogIn,
   Mail,
@@ -19,6 +19,7 @@ import {
   Wallet,
   X,
   Zap,
+  Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSound } from '@/hooks/useSound'
@@ -30,7 +31,7 @@ interface NavGroup {
   name: string
   items: {
     to: string
-    icon: typeof LayoutDashboard
+    icon: typeof Sunrise
     label: string
     hotkey: string
     badge?: string
@@ -41,7 +42,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     name: 'Finance & Control',
     items: [
-      { to: '/', icon: LayoutDashboard, label: 'Dashboard', hotkey: 'D' },
+      { to: '/', icon: Sunrise, label: 'Today', hotkey: 'D' },
       { to: '/money', icon: Wallet, label: 'Money & Spends', hotkey: 'M' },
       { to: '/subscriptions', icon: Repeat, label: 'Subscriptions', hotkey: 'R' },
       { to: '/debts', icon: HandCoins, label: 'Debts & IOUs', hotkey: 'B' },
@@ -51,6 +52,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     name: 'Life & Workspace',
     items: [
+      { to: '/search', icon: Search, label: 'Global search', hotkey: '/' },
       { to: '/calendar', icon: Calendar, label: 'Calendar', hotkey: 'C' },
       { to: '/vault', icon: Lock, label: 'Vault', hotkey: 'V' },
       { to: '/email', icon: Mail, label: 'Email', hotkey: 'E' },
@@ -126,7 +128,7 @@ function NavItem({
   onNavigate,
 }: {
   to: string
-  icon: typeof LayoutDashboard
+  icon: typeof Sunrise
   label: string
   hotkey: string
   compact: boolean
@@ -346,7 +348,7 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       </aside>
 
       {/* Tablet Compact Icon Rail */}
-      <aside className="relative z-20 flex h-screen w-16 shrink-0 flex-col border-r border-border/80 bg-sidebar/95 backdrop-blur-2xl shadow-xl lg:hidden no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <aside className="relative z-20 hidden h-dvh w-16 shrink-0 flex-col border-r border-border/80 bg-sidebar/95 backdrop-blur-2xl shadow-xl sm:flex lg:hidden no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <Logo compact />
         <NavList compact pathname={pathname} />
         <div className="shrink-0 border-t border-border/70 p-2 flex flex-col items-center gap-2">

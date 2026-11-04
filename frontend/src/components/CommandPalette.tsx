@@ -8,7 +8,8 @@ import {
   Calendar,
   FileText,
   HandCoins,
-  LayoutDashboard,
+  Sunrise,
+  Plus,
   Lock,
   Mail,
   PiggyBank,
@@ -36,7 +37,9 @@ interface PaletteItem {
 }
 
 const ITEMS: PaletteItem[] = [
-  { id: 'dashboard', label: 'Dashboard', hint: 'Overview · G D', icon: LayoutDashboard, to: '/' },
+  { id: 'dashboard', label: 'Today', hint: 'Your day · G D', icon: Sunrise, to: '/' },
+  { id: 'search', label: 'Global search', hint: 'Search your saved records', icon: Search, to: '/search' },
+  { id: 'capture', label: 'Quick capture', hint: 'Review and save an entry', icon: Plus, action: () => window.dispatchEvent(new Event('context:quick-capture')) },
   { id: 'money', label: 'Money', hint: 'Spending · G M', icon: Wallet, to: '/money' },
   { id: 'subscriptions', label: 'Subscriptions', hint: 'Renewals & burn · G R', icon: Repeat, to: '/subscriptions' },
   { id: 'debts', label: 'Debts & IOUs', hint: 'Borrowed & lent · G B', icon: HandCoins, to: '/debts' },
@@ -89,11 +92,13 @@ export default function CommandPalette({
     }
     const needle = query.trim().toLowerCase()
     if (!needle) return list
-    return list.filter(
+    const matches = list.filter(
       (item) =>
         item.label.toLowerCase().includes(needle) ||
         item.hint.toLowerCase().includes(needle)
     )
+    if (needle.length >= 2) matches.push({ id: 'search-records', label: `Search records for “${query.trim()}”`, hint: 'Search across your saved data', icon: Search, to: `/search?q=${encodeURIComponent(query.trim())}` })
+    return matches
   }, [query, unlocked, lock])
 
   useEffect(() => {

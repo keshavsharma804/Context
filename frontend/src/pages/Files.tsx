@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'motion/react'
 import {
@@ -147,8 +148,9 @@ function FileRow({ file, index }: { file: FileResult; index: number }) {
 }
 
 export default function Files() {
-  const [query, setQuery] = useState('')
-  const [debounced, setDebounced] = useState('')
+  const [params] = useSearchParams()
+  const [query, setQuery] = useState(() => params.get('q') || '')
+  const [debounced, setDebounced] = useState(() => params.get('q') || '')
   const [category, setCategory] = useState<string>('all')
   const [layout, setLayout] = useState<'grid' | 'list'>('grid')
   const inputRef = useRef<HTMLInputElement>(null)

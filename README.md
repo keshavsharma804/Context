@@ -169,3 +169,53 @@ Closing the dialog clears the preview. Existing entries are never overwritten.
 
 Run parser, encrypted-save, and category regressions with
 `cd frontend` then `node scripts/test-vault-import.mjs`.
+
+In-app smart reminders
+----------------------
+
+The top-bar bell and Today page share one reminder request, refreshed once a
+minute while the app is visible and on window focus. Events and interviews appear
+30 minutes before starting; subscription renewals and unsettled debts appear the
+day before their due date and remain visible when overdue. Dates use the browser's
+IANA time zone. The panel supports Unread/All, mark read, mark all read, dismiss,
+and snooze for 15 minutes, one hour, or 24 hours. On phones it opens as a bottom sheet.
+
+Restart the backend after updating, or redeploy it on Vercel. Normal startup
+applies `003_reminder_states.sql`, which stores reminder actions with the same
+owner-scoped role and row-level policies as other private data. Source data is
+read live; renewal dates create new reminder occurrences, and deleted/completed
+events or settled debts disappear. Reminder states are included in data export
+and the existing confirmed data-clear action. No additional secrets or scheduled
+jobs are required for this in-app version; it does not send email, browser push,
+or notifications while the app is closed.
+
+Run reminder and Today checks without connecting to the live database:
+`venv\Scripts\python.exe -B -m unittest discover -s backend/tests -v`.
+UI/API helper checks: `cd frontend`, then `node scripts/test-interface.mjs`.
+
+Quick capture and global search
+-------------------------------
+
+Open **Quick capture** from Today, the top-bar plus button, or the command
+palette. Enter an expense, event/interview, note, debt, subscription, or contact.
+**Review entry** parses locally on the backend without an AI key and does not
+write data. Check the warnings, correct the editable fields, and select
+**Confirm & save**. Dates use the browser's time zone. An uncertain time or
+estimated renewal date needs review. Retrying a failed save within the same
+dialog reuses its request ID; the record, search index, and receipt commit in
+one transaction, so a lost response does not create a duplicate.
+
+Use **Global search** in the sidebar, the top-bar search field, or the command
+palette. `G` then `/` opens search. Search covers expenses, notes, people,
+events, journal entries, emails, applications, subscriptions, debts, files,
+and history. Vault contents are excluded. Queries accept 2–200 characters,
+support word prefixes and exact amounts, and return at most 40 matches with
+a type filter. Results open the matching record or date; notes support editing.
+Search is debounced and cancels superseded requests. Indexed PostgreSQL queries
+run under the existing account-scoped database role. Capture and search UI are
+loaded on demand. Existing Ask and legacy capture endpoints remain available.
+
+Restart the backend or redeploy it to apply `004_capture_search.sql` through
+normal startup. It adds private capture receipts and search indexes. Deploy the
+updated frontend as well. No new dependencies or secrets are required. Tests
+use fixtures and do not apply the migration to a live Supabase database.

@@ -308,11 +308,11 @@ def _safe_date(year, month, day):
 
 
 
-def _with_year(month, day):
+def _with_year(month, day, today=None):
 
     """Use this year, or last year when the date is still in the future."""
 
-    today = datetime.now().date()
+    today = today or datetime.now().date()
 
     result = _safe_date(today.year, month, day)
 
@@ -326,11 +326,11 @@ def _with_year(month, day):
 
 
 
-def _extract_date(text):
+def _extract_date(text, today=None):
 
     """Return (date or None, text with the date phrase removed)."""
 
-    today = datetime.now().date()
+    today = today or datetime.now().date()
 
 
 
@@ -364,7 +364,7 @@ def _extract_date(text):
 
         month = MONTHS.get(match.group(2).lower())
 
-        return _with_year(month, day) if month else None
+        return _with_year(month, day, today=today) if month else None
 
 
 
@@ -374,7 +374,7 @@ def _extract_date(text):
 
         day = int(match.group(2))
 
-        return _with_year(month, day) if month else None
+        return _with_year(month, day, today=today) if month else None
 
 
 

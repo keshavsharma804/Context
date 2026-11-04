@@ -16,6 +16,7 @@ import {
   VolumeX,
   X,
   Zap,
+  Plus,
 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -33,6 +34,7 @@ import { initialsFromName, readAvatarFile, setUserAvatar } from '@/lib/profile'
 import { getStreak } from '@/lib/streak'
 import { celebrateStreak } from '@/lib/celebrate'
 import { useAuthStore } from '@/store/auth'
+import NotificationBell from '@/components/notifications/NotificationBell'
 
 interface TopbarProps {
   onMenuClick: () => void
@@ -117,7 +119,7 @@ export default function Topbar({ onMenuClick, showMenuButton = true }: TopbarPro
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (search.trim()) {
-      navigate(`/?q=${encodeURIComponent(search.trim())}`)
+      navigate(`/search?q=${encodeURIComponent(search.trim())}`)
     }
   }
 
@@ -143,7 +145,7 @@ export default function Topbar({ onMenuClick, showMenuButton = true }: TopbarPro
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-border/80 bg-background/80 px-4 sm:px-6 backdrop-blur-2xl shadow-sm transition-colors">
+    <header className="relative z-30 flex h-16 shrink-0 items-center justify-between border-b border-border/80 bg-background px-4 sm:px-6 shadow-sm transition-colors">
       {/* Top accent gradient rim */}
       <div
         aria-hidden
@@ -153,7 +155,7 @@ export default function Topbar({ onMenuClick, showMenuButton = true }: TopbarPro
         }}
       />
 
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2 pr-3 sm:gap-3">
         {/* Mobile menu trigger */}
         {showMenuButton && <button
           type="button"
@@ -165,10 +167,10 @@ export default function Topbar({ onMenuClick, showMenuButton = true }: TopbarPro
         </button>}
 
         {/* Omni-Search Spotlight Capsule */}
-        <form onSubmit={handleSearch} className="min-w-0">
+        <form onSubmit={handleSearch} className="min-w-0 max-w-[420px] flex-1">
           <div
             className={cn(
-              'group relative flex h-10 items-center gap-2.5 rounded-xl border px-3.5 transition-all duration-200 sm:w-80 md:w-96 lg:w-[420px]',
+              'group relative flex h-10 w-full items-center gap-2.5 rounded-xl border px-3 sm:px-3.5 transition-all duration-200',
               focused
                 ? 'border-primary/50 bg-card/90 ring-2 ring-primary/20 shadow-lg shadow-primary/10'
                 : 'border-border/70 bg-surface-2/60 hover:border-border hover:bg-surface-2/90'
@@ -223,9 +225,11 @@ export default function Topbar({ onMenuClick, showMenuButton = true }: TopbarPro
 
       {/* Right Hardware Status & Identity Cluster */}
       <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+        {user && <button type="button" aria-label="Quick capture" onClick={() => window.dispatchEvent(new Event('context:quick-capture'))} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card/80 text-muted-foreground hover:text-foreground"><Plus className="h-4 w-4" /></button>}
+        <NotificationBell />
         {/* Streak Counter */}
         <div tabIndex={0} aria-label={`Daily streak: ${streak.streak} ${streak.streak === 1 ? 'day' : 'days'}`}
-          className="flex h-9 items-center gap-2 rounded-xl border border-amber-500/20 bg-card/80 pl-1 pr-2.5 shadow-sm transition-colors hover:border-amber-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="hidden h-9 items-center gap-2 rounded-xl border border-amber-500/20 bg-card/80 pl-1 pr-2.5 shadow-sm transition-colors hover:border-amber-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:flex"
           data-ui-tooltip={
             streak.streak <= 1 && streak.firstEver
               ? 'Your streak starts today. Come back tomorrow!'
@@ -251,7 +255,7 @@ export default function Topbar({ onMenuClick, showMenuButton = true }: TopbarPro
           onClick={() => navigate('/settings?tab=integrations')}
           aria-label={config?.has_groq ? 'Manage your personal AI connection' : 'Connect your personal AI API key'}
           className={cn(
-            'group hidden h-9 items-center gap-2 rounded-xl border bg-card/80 pl-1 pr-2.5 text-[11px] font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait md:inline-flex',
+            'group hidden h-9 items-center gap-2 rounded-xl border bg-card/80 pl-1 pr-2.5 text-[11px] font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait xl:inline-flex',
             config?.has_groq
               ? 'border-emerald-500/20 text-foreground/90 hover:border-emerald-500/40'
               : 'border-border/80 text-muted-foreground hover:border-primary/30 hover:text-foreground'
@@ -275,7 +279,7 @@ export default function Topbar({ onMenuClick, showMenuButton = true }: TopbarPro
         {/* Gmail Sync Indicator */}
         {config?.gmail_connected && (
           <div tabIndex={0}
-            className="hidden max-w-[180px] items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-blue-400 lg:inline-flex shadow-sm"
+            className="hidden max-w-[180px] items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-blue-400 2xl:inline-flex shadow-sm"
             data-ui-tooltip={config.gmail_email ?? 'Gmail synced'}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)] animate-pulse" />
@@ -295,7 +299,7 @@ export default function Topbar({ onMenuClick, showMenuButton = true }: TopbarPro
           aria-label={soundOn ? 'Mute sounds' : 'Enable sounds'}
           data-ui-tooltip={soundOn ? 'Audio feedback: On' : 'Audio feedback: Muted'}
           className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200',
+            'hidden h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 sm:flex',
             soundOn
               ? 'border-primary/40 bg-primary/10 text-primary shadow-sm'
               : 'border-border/70 bg-surface-2 text-muted-foreground/60 hover:text-foreground'
@@ -309,7 +313,7 @@ export default function Topbar({ onMenuClick, showMenuButton = true }: TopbarPro
         </motion.button>
 
         {/* Theme Switcher Knob */}
-        <ThemeToggle />
+        <ThemeToggle className="hidden sm:flex" />
 
         {/* Floating Identity Capsule + Dropdown */}
         <div className="relative" ref={menuRef}>

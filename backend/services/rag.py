@@ -72,10 +72,11 @@ def chunk_text(text):
     return chunks
 
 
-def add_chunk(source_type, source_id, title, content, metadata=None):
+def add_chunk(source_type, source_id, title, content, metadata=None, conn=None):
     if not content:
         return
-    conn = get_conn()
+    owns_connection = conn is None
+    conn = conn if conn is not None else get_conn()
     conn.execute(
         'DELETE FROM context.chunks WHERE source_type = %s AND source_id = %s',
         (source_type, str(source_id)),
@@ -84,8 +85,9 @@ def add_chunk(source_type, source_id, title, content, metadata=None):
         'INSERT INTO context.chunks (title, content, source_type, source_id, metadata) VALUES (%s, %s, %s, %s, %s)',
         ((title or "")[:200], content, source_type, str(source_id), json.dumps(metadata or {})),
     )
-    conn.commit()
-    conn.close()
+    if owns_connection:
+        conn.commit()
+        conn.close()
 
 
 def add_chunks_for_file(path, name, category, content):

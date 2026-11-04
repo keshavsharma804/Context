@@ -7,7 +7,7 @@ for _d in (_backend_dir, os.path.join(_backend_dir, "core"), os.path.join(_backe
         sys.path.insert(0, _d)
 
 import os, re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from icalendar import Calendar
 from core.db import get_conn
 
@@ -138,10 +138,11 @@ def clear_events():
 # ---------- Query for brief ----------
 
 def events_on(date_str):
+    next_day = (datetime.fromisoformat(date_str).date() + timedelta(days=1)).isoformat()
     conn = get_conn()
     rows = conn.execute(
-        'SELECT id, title, start_at, end_at, category, company, location FROM context.events WHERE substr(start_at, 1, 10) = %s ORDER BY start_at',
-        (date_str,),
+        'SELECT id, title, start_at, end_at, category, company, location FROM context.events WHERE start_at >= %s AND start_at < %s ORDER BY start_at',
+        (date_str, next_day),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -160,9 +161,10 @@ def upcoming_events(days=7):
     return [dict(r) for r in rows]
 
 
-def detect_collisions(date_str):
+def detect_collisions(date_str, events=None):
     """Return pairs of overlapping events on a given day."""
-    events = events_on(date_str)
+    if events is None:
+        events = events_on(date_str)
     out = []
     for i, a in enumerate(events):
         for b in events[i+1:]:
@@ -183,9 +185,10 @@ def detect_collisions(date_str):
     return out
 
 
-def free_slots(date_str, min_minutes=30):
+def free_slots(date_str, min_minutes=30, events=None):
     """Gaps between events on a day, 8am–10pm window."""
-    events = events_on(date_str)
+    if events is None:
+        events = events_on(date_str)
     day = datetime.fromisoformat(f"{date_str}T08:00")
     end_of_day = datetime.fromisoformat(f"{date_str}T22:00")
 
@@ -216,36 +219,44 @@ def free_slots(date_str, min_minutes=30):
 
 def events_between(start_date, end_date):
     """All events whose start date falls within an inclusive date range."""
+    end_exclusive = (datetime.fromisoformat(end_date).date() + timedelta(days=1)).isoformat()
     conn = get_conn()
     rows = conn.execute(
-        'SELECT id, title, start_at, end_at, category, company, location FROM context.events WHERE substr(start_at, 1, 10) BETWEEN %s AND %s ORDER BY start_at',
-        (start_date, end_date),
+        'SELECT id, title, start_at, end_at, category, company, location FROM context.events WHERE start_at >= %s AND start_at < %s ORDER BY start_at',
+        (start_date, end_exclusive),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def collisions_in_range(start_date, end_date):
-    from datetime import timedelta as _td
+def collisions_in_range(start_date, end_date, events=None):
     start = datetime.fromisoformat(start_date).date()
     end = datetime.fromisoformat(end_date).date()
+    if start > end:
+        return []
+    if events is None:
+        events = events_between(start_date, end_date)
+    by_day = {}
+    for event in events:
+        day = event["start_at"][:10]
+        if start.isoformat() <= day <= end.isoformat():
+            by_day.setdefault(day, []).append(event)
     out = []
-    day = start
-    while day <= end:
-        for collision in detect_collisions(day.isoformat()):
-            collision["date"] = day.isoformat()
+    for day, day_events in sorted(by_day.items()):
+        for collision in detect_collisions(day, events=day_events):
+            collision["date"] = day
             out.append(collision)
-        day += _td(days=1)
     return out
 
 
 def calendar_brief():
     today = datetime.now().date().isoformat()
+    today_events = events_on(today)
     return {
-        "today": events_on(today),
+        "today": today_events,
         "upcoming": upcoming_events(days=7),
-        "collisions": detect_collisions(today),
-        "free_slots": free_slots(today),
+        "collisions": detect_collisions(today, events=today_events),
+        "free_slots": free_slots(today, events=today_events),
     }
 
 
